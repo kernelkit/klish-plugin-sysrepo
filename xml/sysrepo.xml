@@ -11,6 +11,8 @@
 	MultiKeysWithStatement = y
 	Colorize = y
 	Indent = 2
+	DefaultKeys = n
+	HidePasswords = y
 </PLUGIN>
 
 
