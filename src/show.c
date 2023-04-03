@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
+#include <syslog.h>
 
 #include <faux/faux.h>
 #include <faux/str.h>
@@ -29,6 +30,46 @@ static void show_leaflist(const struct lyd_node *node, size_t level,
 static void show_node(const struct lyd_node *node, size_t level,
 	enum diff_op op, pline_opts_t *opts);
 static enum diff_op str2diff_op(const char *str);
+
+
+// Get extension by name
+bool_t klysc_node_ext(const struct lysc_node *node, const char *module,
+	const char *name, const char **argument)
+{
+	LY_ARRAY_COUNT_TYPE u = 0;
+
+	if (!node || !node->exts)
+		return BOOL_FALSE;
+
+	LY_ARRAY_FOR(node->exts, u) {
+		const struct lysc_ext_instance *ext = &node->exts[u];
+		if (faux_str_cmp(ext->def->module->name, module) != 0)
+			continue;
+		if (faux_str_cmp(ext->def->name, name) != 0)
+			continue;
+		if (argument)
+			*argument = ext->argument;
+		return BOOL_TRUE;
+	}
+
+	return BOOL_FALSE;
+}
+
+
+bool_t klysc_node_ext_is_password(const struct lysc_node *node)
+{
+	return klysc_node_ext(node, "klish", "password", NULL);
+}
+
+
+const char *klysc_node_ext_completion(const struct lysc_node *node)
+{
+	const char *xpath = NULL;
+
+	klysc_node_ext(node, "klish", "completion", &xpath);
+
+	return xpath;
+}
 
 
 static char *get_value(const struct lyd_node *node)
@@ -186,9 +227,14 @@ static void show_leaf(const struct lyd_node *node, size_t level,
 
 	leaf = (struct lysc_node_leaf *)node->schema;
 	if (leaf->type->basetype != LY_TYPE_EMPTY) {
-		char *value = get_value(node);
-		printf(" %s", value);
-		faux_str_free(value);
+		if (opts->hide_passwords &&
+			klysc_node_ext_is_password(node->schema)) {
+			printf(" <hidden>");
+		} else {
+			char *value = get_value(node);
+			printf(" %s", value);
+			faux_str_free(value);
+		}
 	}
 
 	printf("%s%s\n",
