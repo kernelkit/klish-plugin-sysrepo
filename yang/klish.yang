@@ -7,4 +7,8 @@ module klish {
     argument "xpath";
     description "XPath for autocompletion.";
   }
+
+  extension password {
+    description "Leaf element contains password.";
+  }
 }
