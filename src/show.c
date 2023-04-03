@@ -33,16 +33,17 @@ static enum diff_op str2diff_op(const char *str);
 
 
 // Get extension by name
-bool_t klysc_node_ext(const struct lysc_node *node, const char *module,
-	const char *name, const char **argument)
+static bool_t klysc_ext(const struct lysc_ext_instance *exts,
+	const char *module, const char *name, const char **argument)
 {
 	LY_ARRAY_COUNT_TYPE u = 0;
 
-	if (!node || !node->exts)
+	if (!exts)
 		return BOOL_FALSE;
 
-	LY_ARRAY_FOR(node->exts, u) {
-		const struct lysc_ext_instance *ext = &node->exts[u];
+	LY_ARRAY_FOR(exts, u) {
+		const struct lysc_ext_instance *ext = &exts[u];
+		//syslog(LOG_ERR, "mod: %s, ext: %s", ext->def->module->name, ext->def->name);
 		if (faux_str_cmp(ext->def->module->name, module) != 0)
 			continue;
 		if (faux_str_cmp(ext->def->name, name) != 0)
@@ -51,6 +52,19 @@ bool_t klysc_node_ext(const struct lysc_node *node, const char *module,
 			*argument = ext->argument;
 		return BOOL_TRUE;
 	}
+
+	return BOOL_FALSE;
+}
+
+
+// Get extension by name
+bool_t klysc_node_ext(const struct lysc_node *node,
+	const char *module, const char *name, const char **argument)
+{
+	if (!node)
+		return BOOL_FALSE;
+	if (klysc_ext(node->exts, module, name, argument))
+		return BOOL_TRUE;
 
 	return BOOL_FALSE;
 }
