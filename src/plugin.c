@@ -95,7 +95,7 @@ int kplugin_sysrepo_init(kcontext_t *context)
 	udata->opts.show_brackets = BOOL_TRUE;
 	udata->opts.show_semicolons = BOOL_TRUE;
 	udata->opts.first_key_w_stmt = BOOL_FALSE;
-	udata->opts.multi_keys_w_stmt = BOOL_TRUE;
+	udata->opts.keys_w_stmt = BOOL_TRUE;
 	udata->opts.colorize = BOOL_TRUE;
 	udata->opts.indent = 2;
 	udata->opts.default_keys = BOOL_FALSE;
@@ -205,11 +205,11 @@ static int parse_plugin_conf(const char *conf, pline_opts_t *opts)
 			opts->first_key_w_stmt = BOOL_FALSE;
 	}
 
-	if ((val = faux_ini_find(ini, "MultiKeysWithStatement"))) {
+	if ((val = faux_ini_find(ini, "KeysWithStatement"))) {
 		if (faux_str_cmp(val, "y") == 0)
-			opts->multi_keys_w_stmt = BOOL_TRUE;
+			opts->keys_w_stmt = BOOL_TRUE;
 		else if (faux_str_cmp(val, "n") == 0)
-			opts->multi_keys_w_stmt = BOOL_FALSE;
+			opts->keys_w_stmt = BOOL_FALSE;
 	}
 
 	if ((val = faux_ini_find(ini, "Colorize"))) {

@@ -641,8 +641,9 @@ static bool_t pline_parse_module(const struct lys_module *module, faux_argv_t *a
 					assert (leaf->type->basetype != LY_TYPE_EMPTY);
 
 					// Parse statement if necessary
-					if ((first_key && opts->first_key_w_stmt) ||
-						(!first_key && opts->multi_keys_w_stmt)) {
+					if (opts->keys_w_stmt &&
+						(!first_key ||
+						(first_key && opts->first_key_w_stmt))) {
 						// Completion
 						if (!str) {
 							pline_add_compl(pline,

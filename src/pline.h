@@ -117,7 +117,7 @@ typedef struct {
 	bool_t show_brackets;
 	bool_t show_semicolons;
 	bool_t first_key_w_stmt;
-	bool_t multi_keys_w_stmt;
+	bool_t keys_w_stmt;
 	bool_t colorize;
 	uint8_t indent;
 	bool_t default_keys;
