@@ -181,6 +181,8 @@ static void pline_add_compl_subtree(pline_t *pline, const struct lys_module *mod
 			continue;
 		if (!(iter->flags & LYS_CONFIG_W))
 			continue;
+		if ((iter->nodetype & LYS_LEAF) && (iter->flags & LYS_KEY))
+			continue;
 		if (iter->nodetype & (LYS_CHOICE | LYS_CASE)) {
 			pline_add_compl_subtree(pline, module, iter);
 			continue;
@@ -534,6 +536,31 @@ static char *leafref_xpath(const struct lysc_node *node, const char *node_path)
 }
 
 
+typedef struct {
+	const struct lysc_node *node;
+	const char *value;
+	const char *dflt;
+} klysc_key_t;
+
+
+static int klysc_key_compare(const void *first, const void *second)
+{
+	const klysc_key_t *f = (const klysc_key_t *)first;
+	const klysc_key_t *s = (const klysc_key_t *)second;
+
+	return strcmp(f->node->name, s->node->name);
+}
+
+
+static int klysc_key_kcompare(const void *key, const void *list_item)
+{
+	const char *f = (const char *)key;
+	const klysc_key_t *s = (const klysc_key_t *)list_item;
+
+	return strcmp(f, s->node->name);
+}
+
+
 static bool_t pline_parse_module(const struct lys_module *module, faux_argv_t *argv,
 	pline_t *pline, pline_opts_t *opts)
 {
@@ -626,72 +653,186 @@ static bool_t pline_parse_module(const struct lys_module *module, faux_argv_t *a
 			// Next element
 			if (!is_rollback) {
 				bool_t break_upper_loop = BOOL_FALSE;
-				bool_t first_key = BOOL_TRUE;
 
-				LY_LIST_FOR(lysc_node_child(node), iter) {
-					char *tmp = NULL;
-					char *escaped = NULL;
-					struct lysc_node_leaf *leaf =
-						(struct lysc_node_leaf *)iter;
+				// Keys without statement. Positional parameters.
+				if (!opts->keys_w_stmt) {
 
-					if (!(iter->nodetype & LYS_LEAF))
-						continue;
-					if (!(iter->flags & LYS_KEY))
-						continue;
-					assert (leaf->type->basetype != LY_TYPE_EMPTY);
+					LY_LIST_FOR(lysc_node_child(node), iter) {
+						char *tmp = NULL;
+						char *escaped = NULL;
+						struct lysc_node_leaf *leaf =
+							(struct lysc_node_leaf *)iter;
 
-					// Parse statement if necessary
-					if (opts->keys_w_stmt &&
-						(!first_key ||
-						(first_key && opts->first_key_w_stmt))) {
+						if (!(iter->nodetype & LYS_LEAF))
+							continue;
+						if (!(iter->flags & LYS_KEY))
+							continue;
+						assert (leaf->type->basetype != LY_TYPE_EMPTY);
+
 						// Completion
 						if (!str) {
+							char *tmp = NULL;
+							char *compl_xpath = NULL;
+
+							tmp = faux_str_sprintf("%s/%s",
+								pexpr->xpath, leaf->name);
 							pline_add_compl(pline,
-								PCOMPL_NODE, iter, NULL);
+								PCOMPL_TYPE, iter, tmp);
+							compl_xpath = leafref_xpath(iter, tmp);
+							if (compl_xpath) {
+								pline_add_compl(pline, PCOMPL_TYPE,
+									NULL, compl_xpath);
+								faux_str_free(compl_xpath);
+							}
+							faux_str_free(tmp);
 							break_upper_loop = BOOL_TRUE;
 							break;
 						}
 
+						escaped = faux_str_c_esc(str);
+						tmp = faux_str_sprintf("[%s=\"%s\"]",
+							leaf->name, escaped);
+						faux_str_free(escaped);
+						faux_str_cat(&pexpr->xpath, tmp);
+						faux_str_cat(&pexpr->last_keys, tmp);
+						faux_str_free(tmp);
 						pexpr->args_num++;
 						faux_argv_each(&arg);
 						str = (const char *)faux_argv_current(arg);
-
 						pexpr->pat = PAT_LIST_KEY_INCOMPLETED;
 					}
-					first_key = BOOL_FALSE;
 
-					// Completion
-					if (!str) {
-						char *tmp = NULL;
-						char *compl_xpath = NULL;
+				// Keys with statements. Arbitrary order of keys.
+				} else {
+					faux_list_t *keys = NULL;
+					unsigned int specified_keys_num = 0;
+					klysc_key_t *cur_key = NULL;
+					bool_t first_key = BOOL_TRUE;
+					bool_t first_key_is_optional = BOOL_FALSE;
+					faux_list_node_t *key_iter = NULL;
 
-						tmp = faux_str_sprintf("%s/%s",
-							pexpr->xpath, leaf->name);
-						pline_add_compl(pline,
-							PCOMPL_TYPE, iter, tmp);
-						compl_xpath = leafref_xpath(iter, tmp);
-						if (compl_xpath) {
-							pline_add_compl(pline, PCOMPL_TYPE,
-								NULL, compl_xpath);
-							faux_str_free(compl_xpath);
+					// List keys
+					keys = faux_list_new(FAUX_LIST_UNSORTED,
+						FAUX_LIST_UNIQUE,
+						klysc_key_compare,
+						klysc_key_kcompare,
+						(faux_list_free_fn)faux_free);
+
+					LY_LIST_FOR(lysc_node_child(node), iter) {
+						struct lysc_node_leaf *leaf =
+							(struct lysc_node_leaf *)iter;
+						klysc_key_t *key = NULL;
+
+						if (!(iter->nodetype & LYS_LEAF))
+							continue;
+						if (!(iter->flags & LYS_KEY))
+							continue;
+						assert (leaf->type->basetype != LY_TYPE_EMPTY);
+						key = faux_zmalloc(sizeof(*key));
+						assert(key);
+						key->node = iter;
+						if (leaf->dflt) {
+							const struct ly_ctx *ctx = sr_session_acquire_context(pline->sess);
+							key->dflt = lyd_value_get_canonical(ctx, leaf->dflt);
+							sr_session_release_context(pline->sess);
+							if (first_key)
+								first_key_is_optional = BOOL_TRUE;
 						}
+						faux_list_add(keys, key);
+						first_key = BOOL_FALSE;
+					}
+
+					while (specified_keys_num < faux_list_len(keys)) {
+						char *tmp = NULL;
+						char *escaped = NULL;
+
+						// First key without statement. Must be mandatory.
+						if ((0 == specified_keys_num) &&
+							!opts->first_key_w_stmt &&
+							!first_key_is_optional) {
+							cur_key = (klysc_key_t *)faux_list_data(faux_list_head(keys));
+						} else {
+							if (!str)
+								break;
+							cur_key = faux_list_kfind(keys, str);
+							if (!cur_key || cur_key->value)
+								break;
+							pexpr->args_num++;
+							faux_argv_each(&arg);
+							str = (const char *)faux_argv_current(arg);
+						}
+						pexpr->pat = PAT_LIST_KEY_INCOMPLETED;
+
+						// Completion
+						if (!str) {
+							char *tmp = NULL;
+							char *compl_xpath = NULL;
+
+							tmp = faux_str_sprintf("%s/%s",
+								pexpr->xpath, cur_key->node->name);
+							pline_add_compl(pline,
+								PCOMPL_TYPE, cur_key->node, tmp);
+							compl_xpath = leafref_xpath(iter, tmp);
+							if (compl_xpath) {
+								pline_add_compl(pline, PCOMPL_TYPE,
+									NULL, compl_xpath);
+								faux_str_free(compl_xpath);
+							}
+							faux_str_free(tmp);
+							break_upper_loop = BOOL_TRUE;
+							break;
+						}
+
+						escaped = faux_str_c_esc(str);
+						tmp = faux_str_sprintf("[%s=\"%s\"]",
+							cur_key->node->name, escaped);
+						faux_str_free(escaped);
+						faux_str_cat(&pexpr->xpath, tmp);
+						faux_str_cat(&pexpr->last_keys, tmp);
 						faux_str_free(tmp);
-						break_upper_loop = BOOL_TRUE;
+						cur_key->value = str;
+						specified_keys_num++;
+						pexpr->args_num++;
+						faux_argv_each(&arg);
+						str = (const char *)faux_argv_current(arg);
+						pexpr->pat = PAT_LIST_KEY_INCOMPLETED;
+					}
+					if (break_upper_loop) {
+						faux_list_free(keys);
 						break;
 					}
 
-					escaped = faux_str_c_esc(str);
-					tmp = faux_str_sprintf("[%s=\"%s\"]",
-						leaf->name, escaped);
-					faux_str_free(escaped);
-					faux_str_cat(&pexpr->xpath, tmp);
-					faux_str_cat(&pexpr->last_keys, tmp);
-					faux_str_free(tmp);
-					pexpr->args_num++;
-					faux_argv_each(&arg);
-					str = (const char *)faux_argv_current(arg);
+					key_iter = faux_list_head(keys);
+					while((cur_key = (klysc_key_t *)faux_list_each(&key_iter))) {
+						if (cur_key->value)
+							continue;
 
-					pexpr->pat = PAT_LIST_KEY_INCOMPLETED;
+						// Completion
+						if (!str) {
+//							if ((0 == specified_keys_num) &&
+//								!opts->first_key_w_stmt &&
+//								!first_key_is_optional) {
+							pline_add_compl(pline,
+								PCOMPL_NODE, cur_key->node, NULL);
+						}
+
+						if (cur_key->dflt) {
+							char *tmp = NULL;
+							char *escaped = NULL;
+
+							escaped = faux_str_c_esc(cur_key->dflt);
+							tmp = faux_str_sprintf("[%s=\"%s\"]",
+								cur_key->node->name, escaped);
+							faux_str_free(escaped);
+							faux_str_cat(&pexpr->xpath, tmp);
+							faux_str_cat(&pexpr->last_keys, tmp);
+							faux_str_free(tmp);
+							pexpr->pat = PAT_LIST_KEY_INCOMPLETED;
+						} else { // Mandatory key is not specified
+							break_upper_loop = BOOL_TRUE;
+						}
+					}
+					faux_list_free(keys);
 				}
 				if (break_upper_loop)
 					break;
