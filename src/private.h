@@ -79,6 +79,8 @@ void show_subtree(const struct lyd_node *nodes_list, size_t level,
 // Sysrepo copy-paste
 int sr_module_is_internal(const struct lys_module *ly_mod);
 
+const char *klysc_node_ext_default(const struct lysc_node *node);
+
 C_DECL_END
 
 

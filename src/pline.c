@@ -731,10 +731,8 @@ static bool_t pline_parse_module(const struct lys_module *module, faux_argv_t *a
 						key = faux_zmalloc(sizeof(*key));
 						assert(key);
 						key->node = iter;
-						if (leaf->dflt) {
-							const struct ly_ctx *ctx = sr_session_acquire_context(pline->sess);
-							key->dflt = lyd_value_get_canonical(ctx, leaf->dflt);
-							sr_session_release_context(pline->sess);
+						if ((key->dflt = klysc_node_ext_default(iter))) {
+syslog(LOG_ERR, "key dflt %s", key->dflt);
 							if (first_key)
 								first_key_is_optional = BOOL_TRUE;
 						}

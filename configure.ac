@@ -4,10 +4,8 @@ m4_define([MAJOR_VERSION], 1)
 m4_define([MINOR_VERSION], 0)
 m4_define([MICRO_VERSION], 0)
 
-AC_PREREQ(2.59)
-AC_INIT([klish-plugin-sysrepo],
-        [MAJOR_VERSION.MINOR_VERSION.MICRO_VERSION],
-        [serj.kalichev at gmail dot com])
+AC_PREREQ([2.71])
+AC_INIT([klish-plugin-sysrepo],[MAJOR_VERSION.MINOR_VERSION.MICRO_VERSION],[serj.kalichev at gmail dot com])
 
 AC_CONFIG_AUX_DIR(aux_scripts)
 AC_CONFIG_MACRO_DIR([m4])
@@ -22,7 +20,7 @@ AC_USE_SYSTEM_EXTENSIONS
 
 # Checks for programs.
 AC_PROG_CC
-AC_PROG_LIBTOOL
+LT_INIT
 
 AC_CONFIG_HEADERS([config.h])
 AM_INIT_AUTOMAKE(subdir-objects)

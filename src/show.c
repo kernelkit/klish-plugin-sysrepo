@@ -15,8 +15,8 @@
 #include <sysrepo/values.h>
 #include <libyang/tree_edit.h>
 
-#include "pline.h"
 #include "private.h"
+#include "pline.h"
 
 
 static void show_container(const struct lyd_node *node, size_t level,
@@ -83,6 +83,16 @@ const char *klysc_node_ext_completion(const struct lysc_node *node)
 	klysc_node_ext(node, "klish", "completion", &xpath);
 
 	return xpath;
+}
+
+
+const char *klysc_node_ext_default(const struct lysc_node *node)
+{
+	const char *dflt = NULL;
+
+	klysc_node_ext(node, "klish", "default", &dflt);
+
+	return dflt;
 }
 
 

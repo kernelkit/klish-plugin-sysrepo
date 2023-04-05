@@ -11,4 +11,10 @@ module klish {
   extension password {
     description "Leaf element contains password.";
   }
+
+  extension default {
+    argument "default";
+    description "Default value for list's key to make it optional.";
+  }
+
 }
