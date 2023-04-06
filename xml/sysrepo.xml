@@ -149,8 +149,8 @@
 		<ACTION sym="srp_verify@sysrepo"/>
 	</COMMAND>
 
-	<COMMAND name="rollback" help="Rollback to running-config">
-		<ACTION sym="srp_rollback@sysrepo"/>
+	<COMMAND name="reset" help="Reset to running-config">
+		<ACTION sym="srp_reset@sysrepo"/>
 	</COMMAND>
 
 	<COMMAND name="show" help="Show data hierarchy">

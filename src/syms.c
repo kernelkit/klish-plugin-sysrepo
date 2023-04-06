@@ -771,7 +771,7 @@ err:
 }
 
 
-int srp_rollback(kcontext_t *context)
+int srp_reset(kcontext_t *context)
 {
 	int ret = -1;
 	sr_conn_ctx_t *conn = NULL;
@@ -790,7 +790,7 @@ int srp_rollback(kcontext_t *context)
 		goto err;
 	}
 	if (sr_copy_config(sess, NULL, SR_DS_RUNNING, 0) != SR_ERR_OK) {
-		fprintf(stderr, ERRORMSG "Can't rollback to running-config.\n");
+		fprintf(stderr, ERRORMSG "Can't reset to running-config.\n");
 		goto err;
 	}
 
