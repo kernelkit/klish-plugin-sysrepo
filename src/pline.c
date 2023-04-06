@@ -266,61 +266,6 @@ void pline_debug(pline_t *pline)
 }
 
 
-// Don't use standard lys_find_child() because it checks given module to be
-// equal to found node's module. So augmented nodes will not be found.
-static const struct lysc_node *find_child(const struct lysc_node *node,
-	const char *name)
-{
-	const struct lysc_node *iter = NULL;
-
-	if (!node)
-		return NULL;
-
-	LY_LIST_FOR(node, iter) {
-		if (!(iter->nodetype & SRP_NODETYPE_CONF))
-			continue;
-		if (!(iter->flags & LYS_CONFIG_W))
-			continue;
-		// Special case. LYS_CHOICE and LYS_CASE must search for
-		// specified name inside themselfs.
-		if (iter->nodetype & (LYS_CHOICE | LYS_CASE)) {
-			const struct lysc_node *node_in = NULL;
-			node_in = find_child(lysc_node_child(iter), name);
-			if (node_in)
-				return node_in;
-			continue;
-		}
-		if (!faux_str_cmp(iter->name, name))
-			return iter;
-	}
-
-	return NULL;
-}
-
-
-static struct lysc_ident *find_ident(struct lysc_ident *ident, const char *name)
-{
-	LY_ARRAY_COUNT_TYPE u = 0;
-
-	if (!ident)
-		return NULL;
-
-	if (!ident->derived) {
-		if (!faux_str_cmp(name, ident->name))
-			return ident;
-		return NULL;
-	}
-
-	LY_ARRAY_FOR(ident->derived, u) {
-		struct lysc_ident *identity = find_ident(ident->derived[u], name);
-		if (identity)
-			return identity;
-	}
-
-	return NULL;
-}
-
-
 static const char *identityref_prefix(struct lysc_type_identityref *type,
 	const char *name)
 {
@@ -329,35 +274,12 @@ static const char *identityref_prefix(struct lysc_type_identityref *type,
 	assert(type);
 
 	LY_ARRAY_FOR(type->bases, u) {
-		struct lysc_ident *identity = find_ident(type->bases[u], name);
+		struct lysc_ident *identity = klysc_find_ident(type->bases[u], name);
 		if (identity)
 			return identity->module->name;
 	}
 
 	return NULL;
-}
-
-
-size_t list_num_of_keys(const struct lysc_node *node)
-{
-	const struct lysc_node *iter = NULL;
-	size_t num = 0;
-
-	assert(node);
-	if (!node)
-		return 0;
-	if (!(node->nodetype & LYS_LIST))
-		return 0;
-
-	LY_LIST_FOR(lysc_node_child(node), iter) {
-		if (!(iter->nodetype & LYS_LEAF))
-			continue;
-		if (!(iter->flags & LYS_KEY))
-			continue;
-		num++;
-	}
-
-	return num;
 }
 
 
@@ -536,31 +458,6 @@ static char *leafref_xpath(const struct lysc_node *node, const char *node_path)
 }
 
 
-typedef struct {
-	const struct lysc_node *node;
-	const char *value;
-	const char *dflt;
-} klysc_key_t;
-
-
-static int klysc_key_compare(const void *first, const void *second)
-{
-	const klysc_key_t *f = (const klysc_key_t *)first;
-	const klysc_key_t *s = (const klysc_key_t *)second;
-
-	return strcmp(f->node->name, s->node->name);
-}
-
-
-static int klysc_key_kcompare(const void *key, const void *list_item)
-{
-	const char *f = (const char *)key;
-	const klysc_key_t *s = (const klysc_key_t *)list_item;
-
-	return strcmp(f, s->node->name);
-}
-
-
 static bool_t pline_parse_module(const struct lys_module *module, faux_argv_t *argv,
 	pline_t *pline, pline_opts_t *opts)
 {
@@ -623,7 +520,7 @@ static bool_t pline_parse_module(const struct lys_module *module, faux_argv_t *a
 			}
 
 			// Next element
-			node = find_child(module->compiled->data, str);
+			node = klysc_find_child(module->compiled->data, str);
 			if (!node)
 				break;
 
@@ -639,7 +536,7 @@ static bool_t pline_parse_module(const struct lys_module *module, faux_argv_t *a
 			}
 
 			// Next element
-			node = find_child(lysc_node_child(node), str);
+			node = klysc_find_child(lysc_node_child(node), str);
 
 		// List
 		} else if (node->nodetype & LYS_LIST) {
@@ -845,7 +742,7 @@ static bool_t pline_parse_module(const struct lys_module *module, faux_argv_t *a
 			}
 
 			// Next element
-			node = find_child(lysc_node_child(node), str);
+			node = klysc_find_child(lysc_node_child(node), str);
 
 		// Leaf
 		} else if (node->nodetype & LYS_LEAF) {
@@ -962,7 +859,7 @@ static bool_t pline_parse_module(const struct lys_module *module, faux_argv_t *a
 			}
 
 			// Next element
-			node = find_child(lysc_node_child(node), str);
+			node = klysc_find_child(lysc_node_child(node), str);
 
 		} else {
 			break;

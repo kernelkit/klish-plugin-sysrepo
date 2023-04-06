@@ -19,6 +19,24 @@
 #include "pline.h"
 
 
+int klysc_key_compare(const void *first, const void *second)
+{
+	const klysc_key_t *f = (const klysc_key_t *)first;
+	const klysc_key_t *s = (const klysc_key_t *)second;
+
+	return strcmp(f->node->name, s->node->name);
+}
+
+
+int klysc_key_kcompare(const void *key, const void *list_item)
+{
+	const char *f = (const char *)key;
+	const klysc_key_t *s = (const klysc_key_t *)list_item;
+
+	return strcmp(f, s->node->name);
+}
+
+
 // Get extension by name from schema node
 static bool_t klysc_ext(const struct lysc_ext_instance *exts,
 	const char *module, const char *name, const char **argument)
@@ -125,4 +143,59 @@ char *klyd_node_value(const struct lyd_node *node)
 	}
 
 	return result;
+}
+
+
+// Don't use standard lys_find_child() because it checks given module to be
+// equal to found node's module. So augmented nodes will not be found.
+const struct lysc_node *klysc_find_child(const struct lysc_node *node,
+	const char *name)
+{
+	const struct lysc_node *iter = NULL;
+
+	if (!node)
+		return NULL;
+
+	LY_LIST_FOR(node, iter) {
+		if (!(iter->nodetype & SRP_NODETYPE_CONF))
+			continue;
+		if (!(iter->flags & LYS_CONFIG_W))
+			continue;
+		// Special case. LYS_CHOICE and LYS_CASE must search for
+		// specified name inside themselfs.
+		if (iter->nodetype & (LYS_CHOICE | LYS_CASE)) {
+			const struct lysc_node *node_in = NULL;
+			node_in = klysc_find_child(lysc_node_child(iter), name);
+			if (node_in)
+				return node_in;
+			continue;
+		}
+		if (!faux_str_cmp(iter->name, name))
+			return iter;
+	}
+
+	return NULL;
+}
+
+
+struct lysc_ident *klysc_find_ident(struct lysc_ident *ident, const char *name)
+{
+	LY_ARRAY_COUNT_TYPE u = 0;
+
+	if (!ident)
+		return NULL;
+
+	if (!ident->derived) {
+		if (!faux_str_cmp(name, ident->name))
+			return ident;
+		return NULL;
+	}
+
+	LY_ARRAY_FOR(ident->derived, u) {
+		struct lysc_ident *identity = klysc_find_ident(ident->derived[u], name);
+		if (identity)
+			return identity;
+	}
+
+	return NULL;
 }
