@@ -266,198 +266,6 @@ void pline_debug(pline_t *pline)
 }
 
 
-static const char *identityref_prefix(struct lysc_type_identityref *type,
-	const char *name)
-{
-	LY_ARRAY_COUNT_TYPE u = 0;
-
-	assert(type);
-
-	LY_ARRAY_FOR(type->bases, u) {
-		struct lysc_ident *identity = klysc_find_ident(type->bases[u], name);
-		if (identity)
-			return identity->module->name;
-	}
-
-	return NULL;
-}
-
-
-// Get module name by internal prefix. Sysrepo requests use module names but not
-// prefixes.
-static const char *module_by_prefix(const struct lysp_module *parsed, const char *prefix)
-{
-	LY_ARRAY_COUNT_TYPE u = 0;
-
-	if (!parsed)
-		return NULL;
-	if (!prefix)
-		return NULL;
-
-	// Try prefix of module itself
-	if (faux_str_cmp(prefix, parsed->mod->prefix) == 0)
-		return parsed->mod->name;
-
-	// Try imported modules
-	LY_ARRAY_FOR(parsed->imports, u) {
-		const struct lysp_import *import = &parsed->imports[u];
-		if (faux_str_cmp(prefix, import->prefix) == 0)
-			return import->name;
-	}
-
-	return NULL;
-}
-
-
-static char *remap_xpath_prefixes(const char *orig_xpath, const struct lysp_module *parsed)
-{
-	char *remaped = NULL;
-	const char *pos = orig_xpath;
-	const char *start = orig_xpath;
-	char *cached_prefix = NULL;
-	char *cached_module = NULL;
-
-	if (!orig_xpath)
-		return NULL;
-
-	while (*pos != '\0') {
-		if (*pos == '/') {
-			faux_str_catn(&remaped, start, pos - start + 1);
-			start = pos + 1;
-		} else if (*pos == ':') {
-			if (pos != start) {
-				char *prefix = faux_str_dupn(start, pos - start);
-				if (cached_prefix && (faux_str_cmp(prefix, cached_prefix) == 0)) {
-					faux_str_cat(&remaped, cached_module);
-					faux_str_free(prefix);
-				} else {
-					const char *module = module_by_prefix(parsed, prefix);
-					if (module) {
-						faux_str_cat(&remaped, module);
-						faux_str_free(cached_prefix);
-						faux_str_free(cached_module);
-						cached_prefix = prefix;
-						cached_module = faux_str_dup(module);
-					} else {
-						faux_str_cat(&remaped, prefix);
-						faux_str_free(prefix);
-					}
-				}
-			}
-			faux_str_cat(&remaped, ":");
-			start = pos + 1;
-		}
-		pos++;
-	}
-	if (start != pos)
-		faux_str_catn(&remaped, start, pos - start);
-
-	faux_str_free(cached_prefix);
-	faux_str_free(cached_module);
-
-	return remaped;
-}
-
-
-static const char *cut_front_ups(const char *orig_xpath, size_t *up_num)
-{
-	const char *xpath = orig_xpath;
-	const char *needle = "../";
-	size_t needle_len = strlen(needle);
-	size_t num = 0;
-
-	if (!xpath)
-		return NULL;
-
-	while (faux_str_cmpn(xpath, needle, needle_len) == 0) {
-		num++;
-		xpath += needle_len;
-	}
-
-	if (up_num)
-		*up_num = num;
-
-	return xpath;
-}
-
-
-static char *cut_trailing_components(const char *orig_xpath, size_t up_num)
-{
-	const char *xpath = NULL;
-	char *res = NULL;
-	size_t num = 0;
-
-	if (!orig_xpath)
-		return NULL;
-
-	xpath = orig_xpath + strlen(orig_xpath);
-	while (xpath >= orig_xpath) {
-		if (*xpath == '/')
-			num++;
-		if (num == up_num) {
-			res = faux_str_dupn(orig_xpath, xpath - orig_xpath + 1);
-			break;
-		}
-		xpath--;
-	}
-
-	return res;
-}
-
-
-static char *leafref_xpath(const struct lysc_node *node, const char *node_path)
-{
-	char *compl_xpath = NULL;
-	const struct lysc_type *type = NULL;
-	const struct lysc_type_leafref *leafref = NULL;
-	const char *orig_xpath = NULL;
-	char *remaped_xpath = NULL;
-	const char *tmp = NULL;
-	size_t up_num = 0;
-
-	if (!node)
-		return NULL;
-	if (!(node->nodetype & (LYS_LEAF | LYS_LEAFLIST)))
-		return NULL;
-
-	if (node->nodetype & LYS_LEAF)
-		type = ((const struct lysc_node_leaf *)node)->type;
-	else
-		type = ((const struct lysc_node_leaflist *)node)->type;
-
-	if (type->basetype != LY_TYPE_LEAFREF)
-		return NULL;
-	leafref = (const struct lysc_type_leafref *)type;
-
-	orig_xpath = lyxp_get_expr(leafref->path);
-	if (!orig_xpath)
-		return NULL;
-
-	remaped_xpath = remap_xpath_prefixes(orig_xpath, node->module->parsed);
-
-	if (remaped_xpath[0] == '/') // Absolute path
-		return remaped_xpath;
-
-	// Relative path
-	if (!node_path) {
-		faux_str_free(remaped_xpath);
-		return NULL;
-	}
-
-	tmp = cut_front_ups(remaped_xpath, &up_num);
-	compl_xpath = cut_trailing_components(node_path, up_num);
-	if (!compl_xpath) {
-		faux_str_free(remaped_xpath);
-		return NULL;
-	}
-
-	faux_str_cat(&compl_xpath, tmp);
-	faux_str_free(remaped_xpath);
-
-	return compl_xpath;
-}
-
-
 static bool_t pline_parse_module(const struct lys_module *module, faux_argv_t *argv,
 	pline_t *pline, pline_opts_t *opts)
 {
@@ -575,7 +383,7 @@ static bool_t pline_parse_module(const struct lys_module *module, faux_argv_t *a
 								pexpr->xpath, leaf->name);
 							pline_add_compl(pline,
 								PCOMPL_TYPE, iter, tmp);
-							compl_xpath = leafref_xpath(iter, tmp);
+							compl_xpath = klysc_leafref_xpath(iter, tmp);
 							if (compl_xpath) {
 								pline_add_compl(pline, PCOMPL_TYPE,
 									NULL, compl_xpath);
@@ -667,7 +475,7 @@ static bool_t pline_parse_module(const struct lys_module *module, faux_argv_t *a
 								pexpr->xpath, cur_key->node->name);
 							pline_add_compl(pline,
 								PCOMPL_TYPE, cur_key->node, tmp);
-							compl_xpath = leafref_xpath(iter, tmp);
+							compl_xpath = klysc_leafref_xpath(iter, tmp);
 							if (compl_xpath) {
 								pline_add_compl(pline, PCOMPL_TYPE,
 									NULL, compl_xpath);
@@ -769,7 +577,7 @@ static bool_t pline_parse_module(const struct lys_module *module, faux_argv_t *a
 
 				// Completion
 				if (!str) {
-					char *compl_xpath = leafref_xpath(node, pexpr->xpath);
+					char *compl_xpath = klysc_leafref_xpath(node, pexpr->xpath);
 					pline_add_compl(pline,
 						PCOMPL_TYPE, node, compl_xpath);
 					faux_str_free(compl_xpath);
@@ -781,7 +589,7 @@ static bool_t pline_parse_module(const struct lys_module *module, faux_argv_t *a
 				// Idenity must have prefix
 				if (LY_TYPE_IDENT == leaf->type->basetype) {
 					const char *prefix = NULL;
-					prefix = identityref_prefix(
+					prefix = klysc_identityref_prefix(
 						(struct lysc_type_identityref *)
 						leaf->type, str);
 					if (prefix)
@@ -811,7 +619,7 @@ static bool_t pline_parse_module(const struct lys_module *module, faux_argv_t *a
 
 			// Completion
 			if (!str) {
-				char *compl_xpath = leafref_xpath(node, pexpr->xpath);
+				char *compl_xpath = klysc_leafref_xpath(node, pexpr->xpath);
 
 				if (compl_xpath) {
 					pline_add_compl(pline,
@@ -827,7 +635,7 @@ static bool_t pline_parse_module(const struct lys_module *module, faux_argv_t *a
 
 			// Idenity must have prefix
 			if (LY_TYPE_IDENT == leaflist->type->basetype) {
-				prefix = identityref_prefix(
+				prefix = klysc_identityref_prefix(
 					(struct lysc_type_identityref *)
 					leaflist->type, str);
 			}
