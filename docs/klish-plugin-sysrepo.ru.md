@@ -560,9 +560,11 @@ test
 <PLUGIN name="sysrepo">
 	ShowBrackets = y
 	ShowSemicolons = y
+	KeysWithStatement = y
 	FirstKeyWithStatement = n
-	MultiKeysWithStatement = y
 	Colorize = y
 	Indent = 2
+	HidePasswords = y
+	DefaultKeys = y
 </PLUGIN>
 ```
