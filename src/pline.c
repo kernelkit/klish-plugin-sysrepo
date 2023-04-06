@@ -732,7 +732,6 @@ static bool_t pline_parse_module(const struct lys_module *module, faux_argv_t *a
 						assert(key);
 						key->node = iter;
 						if ((key->dflt = klysc_node_ext_default(iter))) {
-syslog(LOG_ERR, "key dflt %s", key->dflt);
 							if (first_key)
 								first_key_is_optional = BOOL_TRUE;
 						}

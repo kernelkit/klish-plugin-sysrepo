@@ -212,9 +212,9 @@ static void show_list(const struct lyd_node *node, size_t level,
 			continue;
 		if (!(iter->schema->flags & LYS_KEY))
 			continue;
-		if (opts->keys_w_stmt &&
-			(!first_key ||
-			(first_key && opts->first_key_w_stmt)))
+		if (opts->keys_w_stmt && (!first_key || (first_key &&
+			(opts->first_key_w_stmt ||
+			(opts->default_keys && klysc_node_ext_default(iter->schema))))))
 			printf(" %s", iter->schema->name);
 		value = get_value(iter);
 		printf(" %s", value);
