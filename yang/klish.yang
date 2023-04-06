@@ -9,6 +9,7 @@ module klish {
   }
 
   extension password {
+    argument "algo";
     description "Leaf element contains password.";
   }
 
