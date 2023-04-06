@@ -96,7 +96,6 @@ const char *klysc_node_ext_default(const struct lysc_node *node);
 char *klyd_node_value(const struct lyd_node *node);
 const struct lysc_node *klysc_find_child(const struct lysc_node *node,
 	const char *name);
-struct lysc_ident *klysc_find_ident(struct lysc_ident *ident, const char *name);
 char *klysc_leafref_xpath(const struct lysc_node *node, const char *node_path);
 const char *klysc_identityref_prefix(struct lysc_type_identityref *type,
 	const char *name);

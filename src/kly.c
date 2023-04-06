@@ -178,7 +178,7 @@ const struct lysc_node *klysc_find_child(const struct lysc_node *node,
 }
 
 
-struct lysc_ident *klysc_find_ident(struct lysc_ident *ident, const char *name)
+static struct lysc_ident *klysc_find_ident(struct lysc_ident *ident, const char *name)
 {
 	LY_ARRAY_COUNT_TYPE u = 0;
 
