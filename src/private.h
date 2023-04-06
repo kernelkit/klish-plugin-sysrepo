@@ -79,7 +79,13 @@ void show_subtree(const struct lyd_node *nodes_list, size_t level,
 // Sysrepo copy-paste
 int sr_module_is_internal(const struct lys_module *ly_mod);
 
+// kly helper library
+bool_t klysc_node_ext(const struct lysc_node *node,
+	const char *module, const char *name, const char **argument);
+bool_t klysc_node_ext_is_password(const struct lysc_node *node);
+const char *klysc_node_ext_completion(const struct lysc_node *node);
 const char *klysc_node_ext_default(const struct lysc_node *node);
+char *klyd_node_value(const struct lyd_node *node);
 
 C_DECL_END
 

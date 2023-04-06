@@ -29,6 +29,7 @@
 static void _log(LY_LOG_LEVEL level, const char *msg, const char *path)
 {
 	fprintf(stderr, ERRORMSG "%s %s\n", msg, path ? path : "");
+	level = level;
 }
 
 
@@ -403,7 +404,6 @@ int srp_del(kcontext_t *context)
 	sr_conn_ctx_t *conn = NULL;
 	sr_session_ctx_t *sess = NULL;
 	pexpr_t *expr = NULL;
-	size_t err_num = 0;
 	faux_argv_t *cur_path = NULL;
 
 	assert(context);
@@ -461,7 +461,6 @@ int srp_edit(kcontext_t *context)
 	sr_conn_ctx_t *conn = NULL;
 	sr_session_ctx_t *sess = NULL;
 	pexpr_t *expr = NULL;
-	size_t err_num = 0;
 	faux_argv_t *cur_path = NULL;
 
 	assert(context);
@@ -589,7 +588,6 @@ int srp_insert(kcontext_t *context)
 	pline_t *pline_to = NULL;
 	sr_conn_ctx_t *conn = NULL;
 	sr_session_ctx_t *sess = NULL;
-	faux_list_node_t *iter = NULL;
 	pexpr_t *expr = NULL;
 	pexpr_t *expr_to = NULL;
 	faux_argv_t *cur_path = NULL;
@@ -815,7 +813,6 @@ int srp_show_xml(kcontext_t *context)
 	faux_argv_t *cur_path = NULL;
 	sr_data_t *data = NULL;
 	struct ly_out *out = NULL;
-	struct lyd_node *child = NULL;
 
 	assert(context);
 
@@ -975,7 +972,6 @@ int srp_deactivate(kcontext_t *context)
 	pexpr_t *expr = NULL;
 	faux_argv_t *cur_path = NULL;
 	sr_data_t *data = NULL;
-	const struct ly_ctx *ctx = NULL;
 
 	assert(context);
 

@@ -32,114 +32,6 @@ static void show_node(const struct lyd_node *node, size_t level,
 static enum diff_op str2diff_op(const char *str);
 
 
-// Get extension by name
-static bool_t klysc_ext(const struct lysc_ext_instance *exts,
-	const char *module, const char *name, const char **argument)
-{
-	LY_ARRAY_COUNT_TYPE u = 0;
-
-	if (!exts)
-		return BOOL_FALSE;
-
-	LY_ARRAY_FOR(exts, u) {
-		const struct lysc_ext_instance *ext = &exts[u];
-		//syslog(LOG_ERR, "mod: %s, ext: %s", ext->def->module->name, ext->def->name);
-		if (faux_str_cmp(ext->def->module->name, module) != 0)
-			continue;
-		if (faux_str_cmp(ext->def->name, name) != 0)
-			continue;
-		if (argument)
-			*argument = ext->argument;
-		return BOOL_TRUE;
-	}
-
-	return BOOL_FALSE;
-}
-
-
-// Get extension by name
-bool_t klysc_node_ext(const struct lysc_node *node,
-	const char *module, const char *name, const char **argument)
-{
-	if (!node)
-		return BOOL_FALSE;
-	if (klysc_ext(node->exts, module, name, argument))
-		return BOOL_TRUE;
-
-	return BOOL_FALSE;
-}
-
-
-bool_t klysc_node_ext_is_password(const struct lysc_node *node)
-{
-	return klysc_node_ext(node, "klish", "password", NULL);
-}
-
-
-const char *klysc_node_ext_completion(const struct lysc_node *node)
-{
-	const char *xpath = NULL;
-
-	klysc_node_ext(node, "klish", "completion", &xpath);
-
-	return xpath;
-}
-
-
-const char *klysc_node_ext_default(const struct lysc_node *node)
-{
-	const char *dflt = NULL;
-
-	klysc_node_ext(node, "klish", "default", &dflt);
-
-	return dflt;
-}
-
-
-static char *get_value(const struct lyd_node *node)
-{
-	const struct lysc_node *schema = NULL;
-	const struct lysc_type *type = NULL;
-	const char *origin_value = NULL;
-	char *space = NULL;
-	char *escaped = NULL;
-	char *result = NULL;
-
-	if (!node)
-		return NULL;
-
-	schema = node->schema;
-	if (!(schema->nodetype & (LYS_LEAF | LYS_LEAFLIST)))
-		return NULL;
-
-	if (schema->nodetype & LYS_LEAF)
-		type = ((const struct lysc_node_leaf *)schema)->type;
-	else
-		type = ((const struct lysc_node_leaflist *)schema)->type;
-
-	if (type->basetype != LY_TYPE_IDENT) {
-		origin_value = lyd_get_value(node);
-	} else {
-		// Identity
-		const struct lyd_value *value = NULL;
-		value = &((const struct lyd_node_term *)node)->value;
-		origin_value = value->ident->name;
-	}
-
-	escaped = faux_str_c_esc(origin_value);
-	// String with space must have quotes
-	space = strchr(origin_value, ' ');
-	if (space) {
-		result = faux_str_sprintf("\"%s\"", escaped);
-		faux_str_free(escaped);
-	} else {
-		result = escaped;
-	}
-
-	return result;
-}
-
-
 static const char *diff_prefix(enum diff_op op, pline_opts_t *opts)
 {
 	bool_t c = opts->colorize;
@@ -193,7 +85,6 @@ static void show_list(const struct lyd_node *node, size_t level,
 	enum diff_op op, pline_opts_t *opts)
 {
 	char begin_bracket[3] = {' ', opts->begin_bracket, '\0'};
-	size_t keys_num = 0;
 	const struct lyd_node *iter = NULL;
 	bool_t first_key = BOOL_TRUE;
 
@@ -216,7 +107,7 @@ static void show_list(const struct lyd_node *node, size_t level,
 			(opts->first_key_w_stmt ||
 			(opts->default_keys && klysc_node_ext_default(iter->schema))))))
 			printf(" %s", iter->schema->name);
-		value = get_value(iter);
+		value = klyd_node_value(iter);
 		printf(" %s", value);
 		faux_str_free(value);
 		first_key = BOOL_FALSE;
@@ -256,7 +147,7 @@ static void show_leaf(const struct lyd_node *node, size_t level,
 			klysc_node_ext_is_password(node->schema)) {
 			printf(" <hidden>");
 		} else {
-			char *value = get_value(node);
+			char *value = klyd_node_value(node);
 			printf(" %s", value);
 			faux_str_free(value);
 		}
@@ -276,7 +167,7 @@ static void show_leaflist(const struct lyd_node *node, size_t level,
 	if (!node)
 		return;
 
-	value = get_value(node);
+	value = klyd_node_value(node);
 	printf("%s%*s%s %s%s%s\n",
 		diff_prefix(op, opts),
 		(int)(level * opts->indent), "",
