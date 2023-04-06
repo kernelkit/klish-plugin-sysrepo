@@ -731,7 +731,8 @@ static bool_t pline_parse_module(const struct lys_module *module, faux_argv_t *a
 						key = faux_zmalloc(sizeof(*key));
 						assert(key);
 						key->node = iter;
-						if ((key->dflt = klysc_node_ext_default(iter))) {
+						if (opts->default_keys &&
+							(key->dflt = klysc_node_ext_default(iter))) {
 							if (first_key)
 								first_key_is_optional = BOOL_TRUE;
 						}
@@ -813,7 +814,7 @@ static bool_t pline_parse_module(const struct lys_module *module, faux_argv_t *a
 								PCOMPL_NODE, cur_key->node, NULL);
 						}
 
-						if (cur_key->dflt) {
+						if (opts->default_keys && cur_key->dflt) {
 							char *tmp = NULL;
 							char *escaped = NULL;
 
