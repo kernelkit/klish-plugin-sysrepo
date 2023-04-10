@@ -815,101 +815,111 @@ static void pline_print_type_completions(const struct lysc_type *type)
 static void pline_print_type_help(const struct lysc_node *node,
 	const struct lysc_type *type)
 {
+	const char *units = NULL;
+
 	assert(type);
+	assert(node);
 
-	if ((type->basetype != LY_TYPE_UNION) &&
-		(type->basetype != LY_TYPE_LEAFREF))
-		printf("%s\n", node->name);
-
-	switch (type->basetype) {
-
-	case LY_TYPE_UINT8: {
-		printf("Unsigned integer 8bit\n");
-		break;
-	}
-
-	case LY_TYPE_UINT16: {
-		printf("Unsigned integer 16bit\n");
-		break;
-	}
-
-	case LY_TYPE_UINT32: {
-		printf("Unsigned integer 32bit\n");
-		break;
-	}
-
-	case LY_TYPE_UINT64: {
-		printf("Unsigned integer 64bit\n");
-		break;
-	}
-
-	case LY_TYPE_INT8: {
-		printf("Integer 8bit\n");
-		break;
-	}
-
-	case LY_TYPE_INT16: {
-		printf("Integer 16bit\n");
-		break;
-	}
-
-	case LY_TYPE_INT32: {
-		printf("Integer 32bit\n");
-		break;
-	}
-
-	case LY_TYPE_INT64: {
-		printf("Integer 64bit\n");
-		break;
-	}
-
-	case LY_TYPE_STRING: {
-		printf("String\n");
-		break;
-	}
-
-	case LY_TYPE_BOOL: {
-		printf("Boolean true/false\n");
-		break;
-	}
-
-	case LY_TYPE_DEC64: {
-		printf("Signed decimal number\n");
-		break;
-	}
-
-	case LY_TYPE_ENUM: {
-		printf("Enumerated choice\n");
-		break;
-	}
-
-	case LY_TYPE_IDENT: {
-		printf("Identity\n");
-		break;
-	}
-
-	case LY_TYPE_UNION: {
+	if (LY_TYPE_UNION == type->basetype) {
 		struct lysc_type_union *t =
 			(struct lysc_type_union *)type;
 		LY_ARRAY_COUNT_TYPE u = 0;
-
-		LY_ARRAY_FOR(t->types, u) {
+		LY_ARRAY_FOR(t->types, u)
 			pline_print_type_help(node, t->types[u]);
-		}
-		break;
+		return;
 	}
 
-	case LY_TYPE_LEAFREF: {
+	if (LY_TYPE_LEAFREF == type->basetype) {
 		struct lysc_type_leafref *t =
 			(struct lysc_type_leafref *)type;
 		pline_print_type_help(node, t->realtype);
-		}
-		break;
-
-	default:
-		printf("Unknown\n");
-		break;
+		return;
 	}
+
+	if (node->nodetype & LYS_LEAF)
+		units = ((struct lysc_node_leaf *)node)->units;
+	else if (node->nodetype & LYS_LEAFLIST)
+		units = ((struct lysc_node_leaflist *)node)->units;
+	else
+		return;
+
+	if (units) {
+		printf("%s\n", units);
+	} else {
+		switch (type->basetype) {
+
+		case LY_TYPE_UINT8: {
+			printf("<uint8>\n");
+			break;
+		}
+
+		case LY_TYPE_UINT16: {
+			printf("<uint16>\n");
+			break;
+		}
+
+		case LY_TYPE_UINT32: {
+			printf("<uint32>\n");
+			break;
+		}
+
+		case LY_TYPE_UINT64: {
+			printf("<uint64>\n");
+			break;
+		}
+
+		case LY_TYPE_INT8: {
+			printf("<int8>\n");
+			break;
+		}
+
+		case LY_TYPE_INT16: {
+			printf("<int16>\n");
+			break;
+		}
+
+		case LY_TYPE_INT32: {
+			printf("<int32>\n");
+			break;
+		}
+
+		case LY_TYPE_INT64: {
+			printf("<int64>\n");
+			break;
+		}
+
+		case LY_TYPE_STRING: {
+			printf("<string>\n");
+			break;
+		}
+
+		case LY_TYPE_BOOL: {
+			printf("<true/false>\n");
+			break;
+		}
+
+		case LY_TYPE_DEC64: {
+			printf("<number>\n");
+			break;
+		}
+
+		case LY_TYPE_ENUM: {
+			printf("Enumerated choice\n");
+			break;
+		}
+
+		case LY_TYPE_IDENT: {
+			printf("Identity\n");
+			break;
+		}
+
+		default:
+			printf("<unknown>\n");
+			break;
+		}
+	}
+
+	printf("%s\n", node->dsc ? node->dsc : node->name);
 }
 
 
