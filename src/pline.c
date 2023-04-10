@@ -7,6 +7,7 @@
 #include <string.h>
 #include <assert.h>
 #include <syslog.h>
+#include <limits.h>
 
 #include <faux/faux.h>
 #include <faux/str.h>
@@ -812,6 +813,42 @@ static void pline_print_type_completions(const struct lysc_type *type)
 }
 
 
+static void uint_range(const struct lysc_type *type, uint64_t def_min, uint64_t def_max)
+{
+	uint64_t min = def_min;
+	uint64_t max = def_max;
+	struct lysc_range *range = ((struct lysc_type_num *)type)->range;
+	char *r = NULL;
+
+	if (range) {
+		min = range->parts->min_u64;
+		max = range->parts->max_u64;
+	}
+
+	r = faux_str_sprintf("[%" PRIu64 "..%" PRIu64 "]", min, max);
+	printf("%s\n", r ? r : "<uint>");
+	faux_free(r);
+}
+
+
+static void int_range(const struct lysc_type *type, int64_t def_min, int64_t def_max)
+{
+	int64_t min = def_min;
+	int64_t max = def_max;
+	struct lysc_range *range = ((struct lysc_type_num *)type)->range;
+	char *r = NULL;
+
+	if (range) {
+		min = range->parts->min_64;
+		max = range->parts->max_64;
+	}
+
+	r = faux_str_sprintf("[%" PRId64 "..%" PRId64 "]", min, max);
+	printf("%s\n", r ? r : "<uint>");
+	faux_free(r);
+}
+
+
 static void pline_print_type_help(const struct lysc_node *node,
 	const struct lysc_type *type)
 {
@@ -848,70 +885,57 @@ static void pline_print_type_help(const struct lysc_node *node,
 	} else {
 		switch (type->basetype) {
 
-		case LY_TYPE_UINT8: {
-			printf("<uint8>\n");
+		case LY_TYPE_UINT8:
+			uint_range(type, 0, UCHAR_MAX);
 			break;
-		}
 
-		case LY_TYPE_UINT16: {
-			printf("<uint16>\n");
+		case LY_TYPE_UINT16:
+			uint_range(type, 0, USHRT_MAX);
 			break;
-		}
 
-		case LY_TYPE_UINT32: {
+		case LY_TYPE_UINT32:
 			printf("<uint32>\n");
 			break;
-		}
 
-		case LY_TYPE_UINT64: {
+		case LY_TYPE_UINT64:
 			printf("<uint64>\n");
 			break;
-		}
 
-		case LY_TYPE_INT8: {
-			printf("<int8>\n");
+		case LY_TYPE_INT8:
+			int_range(type, CHAR_MIN, CHAR_MAX);
 			break;
-		}
 
-		case LY_TYPE_INT16: {
+		case LY_TYPE_INT16:
 			printf("<int16>\n");
 			break;
-		}
 
-		case LY_TYPE_INT32: {
+		case LY_TYPE_INT32:
 			printf("<int32>\n");
 			break;
-		}
 
-		case LY_TYPE_INT64: {
+		case LY_TYPE_INT64:
 			printf("<int64>\n");
 			break;
-		}
 
-		case LY_TYPE_STRING: {
+		case LY_TYPE_STRING:
 			printf("<string>\n");
 			break;
-		}
 
-		case LY_TYPE_BOOL: {
+		case LY_TYPE_BOOL:
 			printf("<true/false>\n");
 			break;
-		}
 
-		case LY_TYPE_DEC64: {
+		case LY_TYPE_DEC64:
 			printf("<number>\n");
 			break;
-		}
 
-		case LY_TYPE_ENUM: {
+		case LY_TYPE_ENUM:
 			printf("Enumerated choice\n");
 			break;
-		}
 
-		case LY_TYPE_IDENT: {
+		case LY_TYPE_IDENT:
 			printf("Identity\n");
 			break;
-		}
 
 		default:
 			printf("<unknown>\n");
