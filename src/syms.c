@@ -41,6 +41,23 @@ int srp_set_log_func(void)
 }
 
 
+// Print sysrepo session errors
+static void srp_print_errors(sr_session_ctx_t *session)
+{
+	const sr_error_info_t *err_info = NULL;
+	int rc = sr_session_get_error(session, &err_info);
+	unsigned int i = 0;
+
+	if ((rc != SR_ERR_OK) || !err_info)
+		return;
+	// Show the first error only. Because probably next errors are
+	// originated from internal sysrepo code but is not from subscribers.
+//	for (i = 0; i < err_info->err_count; i++)
+	for (i = 0; i < (err_info->err_count < 1 ? err_info->err_count : 1); i++)
+		fprintf(stderr, ERRORMSG "%s\n", err_info->err[i].message);
+}
+
+
 static faux_argv_t *param2argv(const faux_argv_t *cur_path,
 	const kpargv_t *pargv, const char *entry_name)
 {
@@ -497,6 +514,7 @@ int srp_edit(kcontext_t *context)
 		fprintf(stderr, ERRORMSG "Can't set editing data.\n");
 		goto err;
 	}
+
 	sr_apply_changes(sess, 0);
 
 	// Set new current path
@@ -681,6 +699,7 @@ int srp_insert(kcontext_t *context)
 		fprintf(stderr, ERRORMSG "Can't move element.\n");
 		goto err;
 	}
+
 	sr_apply_changes(sess, 0);
 
 	ret = 0;
@@ -714,6 +733,7 @@ int srp_verify(kcontext_t *context)
 	// Validate candidate config
 	if (sr_validate(sess, NULL, 0) != SR_ERR_OK) {
 		fprintf(stderr, ERRORMSG "Invalid candidate configuration.\n");
+		srp_print_errors(sess);
 		goto err;
 	}
 
@@ -750,6 +770,7 @@ int srp_commit(kcontext_t *context)
 	}
 	if (sr_copy_config(sess, NULL, SRP_REPO_EDIT, 0) != SR_ERR_OK) {
 		fprintf(stderr, ERRORMSG "Can't commit to running-config.\n");
+		srp_print_errors(sess);
 		goto err;
 	}
 
@@ -760,6 +781,7 @@ int srp_commit(kcontext_t *context)
 	}
 	if (sr_copy_config(sess, NULL, SR_DS_RUNNING, 0) != SR_ERR_OK) {
 		fprintf(stderr, ERRORMSG "Can't store data to startup-config.\n");
+		srp_print_errors(sess);
 		goto err;
 	}
 
@@ -791,6 +813,7 @@ int srp_reset(kcontext_t *context)
 	}
 	if (sr_copy_config(sess, NULL, SR_DS_RUNNING, 0) != SR_ERR_OK) {
 		fprintf(stderr, ERRORMSG "Can't reset to running-config.\n");
+		srp_print_errors(sess);
 		goto err;
 	}
 
