@@ -102,12 +102,12 @@
 		<VIEW name="operational" ref="/main"/>
 	</COMMAND>
 
-	<COMMAND name="set" help="Set data to database">
+	<COMMAND name="set" help="Set data to configuration">
 		<PARAM name="path" ptype="/PLINE_SET" max="100"/>
 		<ACTION sym="srp_set@sysrepo"/>
 	</COMMAND>
 
-	<COMMAND name="del" help="Delete data from database">
+	<COMMAND name="del" help="Delete data from configuration">
 		<PARAM name="path" ptype="/PLINE_DEL" max="100"/>
 		<ACTION sym="srp_del@sysrepo"/>
 	</COMMAND>
@@ -158,7 +158,7 @@
 		<ACTION sym="srp_show@sysrepo"/>
 	</COMMAND>
 
-	<COMMAND name="diff" help="Show diff to running-config">
+	<COMMAND name="diff" help="Show diff relative running-config">
 		<PARAM name="path" ptype="/PLINE_EDIT" min="0" max="100"/>
 		<ACTION sym="srp_diff@sysrepo"/>
 	</COMMAND>

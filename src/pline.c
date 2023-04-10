@@ -894,11 +894,15 @@ static void pline_print_type_help(const struct lysc_node *node,
 			break;
 
 		case LY_TYPE_UINT32:
-			printf("<uint32>\n");
+			uint_range(type, 0, UINT_MAX);
 			break;
 
 		case LY_TYPE_UINT64:
-			printf("<uint64>\n");
+			uint_range(type, 0, ULLONG_MAX);
+			break;
+
+		case LY_TYPE_DEC64:
+			uint_range(type, 0, ULLONG_MAX);
 			break;
 
 		case LY_TYPE_INT8:
@@ -906,15 +910,15 @@ static void pline_print_type_help(const struct lysc_node *node,
 			break;
 
 		case LY_TYPE_INT16:
-			printf("<int16>\n");
+			int_range(type, SHRT_MIN, SHRT_MAX);
 			break;
 
 		case LY_TYPE_INT32:
-			printf("<int32>\n");
+			int_range(type, INT_MIN, INT_MAX);
 			break;
 
 		case LY_TYPE_INT64:
-			printf("<int64>\n");
+			int_range(type, LLONG_MIN, LLONG_MAX);
 			break;
 
 		case LY_TYPE_STRING:
@@ -923,10 +927,6 @@ static void pline_print_type_help(const struct lysc_node *node,
 
 		case LY_TYPE_BOOL:
 			printf("<true/false>\n");
-			break;
-
-		case LY_TYPE_DEC64:
-			printf("<number>\n");
 			break;
 
 		case LY_TYPE_ENUM:
