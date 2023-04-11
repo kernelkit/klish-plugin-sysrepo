@@ -885,14 +885,6 @@ static void pline_print_type_help(const struct lysc_node *node,
 	assert(type);
 	assert(node);
 
-	if (LY_TYPE_UNION == type->basetype) {
-		struct lysc_type_union *t =
-			(struct lysc_type_union *)type;
-		LY_ARRAY_COUNT_TYPE u = 0;
-		LY_ARRAY_FOR(t->types, u)
-			pline_print_type_help(node, t->types[u]);
-		return;
-	}
 
 	if (LY_TYPE_LEAFREF == type->basetype) {
 		struct lysc_type_leafref *t =
@@ -956,6 +948,15 @@ static void pline_print_type_help(const struct lysc_node *node,
 		case LY_TYPE_BOOL:
 			printf("<true/false>\n");
 			break;
+
+		case LY_TYPE_UNION: {
+			struct lysc_type_union *t =
+				(struct lysc_type_union *)type;
+			LY_ARRAY_COUNT_TYPE u = 0;
+			LY_ARRAY_FOR(t->types, u)
+				pline_print_type_help(node, t->types[u]);
+			break;
+		}
 
 		case LY_TYPE_ENUM:
 			printf("Enumerated choice\n");
