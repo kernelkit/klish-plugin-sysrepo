@@ -815,36 +815,64 @@ static void pline_print_type_completions(const struct lysc_type *type)
 
 static void uint_range(const struct lysc_type *type, uint64_t def_min, uint64_t def_max)
 {
-	uint64_t min = def_min;
-	uint64_t max = def_max;
-	struct lysc_range *range = ((struct lysc_type_num *)type)->range;
+	struct lysc_range *range = NULL;
+	LY_ARRAY_COUNT_TYPE u = 0;
 	char *r = NULL;
 
-	if (range) {
-		min = range->parts->min_u64;
-		max = range->parts->max_u64;
+	assert(type);
+	range = ((struct lysc_type_num *)type)->range;
+
+	// Show defaults
+	if (!range) {
+		printf("[%" PRIu64 "..%" PRIu64 "]\n", def_min, def_max);
+		return;
 	}
 
-	r = faux_str_sprintf("[%" PRIu64 "..%" PRIu64 "]", min, max);
-	printf("%s\n", r ? r : "<uint>");
+	// Range
+	faux_str_cat(&r, "[");
+	LY_ARRAY_FOR(range->parts, u) {
+		char *t = NULL;
+		if (u != 0)
+			faux_str_cat(&r, ",");
+		t = faux_str_sprintf("%" PRIu64 "..%" PRIu64,
+			range->parts[u].min_u64, range->parts[u].max_u64);
+		faux_str_cat(&r, t);
+		faux_str_free(t);
+	}
+	faux_str_cat(&r, "]\n");
+	printf("%s", r);
 	faux_free(r);
 }
 
 
 static void int_range(const struct lysc_type *type, int64_t def_min, int64_t def_max)
 {
-	int64_t min = def_min;
-	int64_t max = def_max;
-	struct lysc_range *range = ((struct lysc_type_num *)type)->range;
+	struct lysc_range *range = NULL;
+	LY_ARRAY_COUNT_TYPE u = 0;
 	char *r = NULL;
 
-	if (range) {
-		min = range->parts->min_64;
-		max = range->parts->max_64;
+	assert(type);
+	range = ((struct lysc_type_num *)type)->range;
+
+	// Show defaults
+	if (!range) {
+		printf("[%" PRId64 "..%" PRId64 "]\n", def_min, def_max);
+		return;
 	}
 
-	r = faux_str_sprintf("[%" PRId64 "..%" PRId64 "]", min, max);
-	printf("%s\n", r ? r : "<uint>");
+	// Range
+	faux_str_cat(&r, "[");
+	LY_ARRAY_FOR(range->parts, u) {
+		char *t = NULL;
+		if (u != 0)
+			faux_str_cat(&r, ",");
+		t = faux_str_sprintf("%" PRId64 "..%" PRId64,
+			range->parts[u].min_64, range->parts[u].max_64);
+		faux_str_cat(&r, t);
+		faux_str_free(t);
+	}
+	faux_str_cat(&r, "]\n");
+	printf("%s", r);
 	faux_free(r);
 }
 
