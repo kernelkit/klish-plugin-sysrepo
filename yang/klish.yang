@@ -1,21 +1,21 @@
 module klish {
   namespace "http://klish.libcode.org/yang/klish";
   prefix "klish";
-  description "Klish extensions. The klish-plugin-sysrepo can use it.";
+  description "Klish extensions. The klish-plugin-sysrepo can use it";
 
   extension completion {
     argument "xpath";
-    description "XPath for autocompletion.";
+    description "XPath for autocompletion";
   }
 
   extension password {
     argument "algo";
-    description "Leaf element contains password.";
+    description "Leaf element contains password";
   }
 
   extension default {
     argument "default";
-    description "Default value for list's key to make it optional.";
+    description "Default value for list's key to make it optional";
   }
 
 }
