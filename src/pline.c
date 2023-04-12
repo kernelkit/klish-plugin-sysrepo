@@ -745,7 +745,7 @@ pline_t *pline_parse(sr_session_ctx_t *sess, faux_argv_t *argv, pline_opts_t *op
 }
 
 
-static void identityref(struct lysc_ident *ident)
+static void identityref_compl(struct lysc_ident *ident)
 {
 	LY_ARRAY_COUNT_TYPE u = 0;
 
@@ -758,9 +758,29 @@ static void identityref(struct lysc_ident *ident)
 	}
 
 	LY_ARRAY_FOR(ident->derived, u) {
-		identityref(ident->derived[u]);
+		identityref_compl(ident->derived[u]);
 	}
 }
+
+
+static void identityref_help(struct lysc_ident *ident)
+{
+	LY_ARRAY_COUNT_TYPE u = 0;
+
+	if (!ident)
+		return;
+
+	if (!ident->derived) {
+		printf("%s\n%s\n", ident->name,
+			ident->dsc ? ident->dsc : ident->name);
+		return;
+	}
+
+	LY_ARRAY_FOR(ident->derived, u) {
+		identityref_help(ident->derived[u]);
+	}
+}
+
 
 
 static void pline_print_type_completions(const struct lysc_type *type)
@@ -791,7 +811,7 @@ static void pline_print_type_completions(const struct lysc_type *type)
 		LY_ARRAY_COUNT_TYPE u = 0;
 
 		LY_ARRAY_FOR(t->bases, u) {
-			identityref(t->bases[u]);
+			identityref_compl(t->bases[u]);
 		}
 		break;
 	}
@@ -1014,28 +1034,43 @@ static void pline_print_type_help(const struct lysc_node *node,
 			printf("<true/false>\n");
 			break;
 
-		case LY_TYPE_LEAFREF:
-			struct lysc_type_leafref *t =
-				(struct lysc_type_leafref *)type;
+		case LY_TYPE_LEAFREF: {
+			const struct lysc_type_leafref *t =
+				(const struct lysc_type_leafref *)type;
 			pline_print_type_help(node, t->realtype);
 			break;
+		}
 
 		case LY_TYPE_UNION: {
-			struct lysc_type_union *t =
-				(struct lysc_type_union *)type;
+			const struct lysc_type_union *t =
+				(const struct lysc_type_union *)type;
 			LY_ARRAY_COUNT_TYPE u = 0;
 			LY_ARRAY_FOR(t->types, u)
 				pline_print_type_help(node, t->types[u]);
 			break;
 		}
 
-		case LY_TYPE_ENUM:
-			printf("Enumerated choice\n");
+		case LY_TYPE_ENUM: {
+			const struct lysc_type_enum *t =
+				(const struct lysc_type_enum *)type;
+			LY_ARRAY_COUNT_TYPE u = 0;
+			LY_ARRAY_FOR(t->enums, u)
+				printf("%s\n%s\n",
+					t->enums[u].name,
+					t->enums[u].dsc ? t->enums[u].dsc : t->enums[u].name);
+			return; // Because it prints whole info itself
 			break;
+		}
 
-		case LY_TYPE_IDENT:
-			printf("Identity\n");
+		case LY_TYPE_IDENT: {
+			struct lysc_type_identityref *t =
+				(struct lysc_type_identityref *)type;
+			LY_ARRAY_COUNT_TYPE u = 0;
+			LY_ARRAY_FOR(t->bases, u)
+				identityref_help(t->bases[u]);
+			return; // Because it prints whole info itself
 			break;
+		}
 
 		default:
 			printf("<unknown>\n");
