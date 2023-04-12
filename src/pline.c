@@ -833,7 +833,7 @@ static void uint_range(const struct lysc_type *type, uint64_t def_min, uint64_t 
 	LY_ARRAY_FOR(range->parts, u) {
 		char *t = NULL;
 		if (u != 0)
-			faux_str_cat(&r, ",");
+			faux_str_cat(&r, "|");
 		t = faux_str_sprintf("%" PRIu64 "..%" PRIu64,
 			range->parts[u].min_u64, range->parts[u].max_u64);
 		faux_str_cat(&r, t);
@@ -865,9 +865,50 @@ static void int_range(const struct lysc_type *type, int64_t def_min, int64_t def
 	LY_ARRAY_FOR(range->parts, u) {
 		char *t = NULL;
 		if (u != 0)
-			faux_str_cat(&r, ",");
+			faux_str_cat(&r, "|");
 		t = faux_str_sprintf("%" PRId64 "..%" PRId64,
 			range->parts[u].min_64, range->parts[u].max_64);
+		faux_str_cat(&r, t);
+		faux_str_free(t);
+	}
+	faux_str_cat(&r, "]\n");
+	printf("%s", r);
+	faux_free(r);
+}
+
+
+static void dec_range(const struct lysc_type *type, int64_t def_min, int64_t def_max)
+{
+	struct lysc_range *range = NULL;
+	uint8_t fraction_digits = 0;
+	LY_ARRAY_COUNT_TYPE u = 0;
+	char *r = NULL;
+	int64_t div = 1;
+	uint8_t i = 0;
+
+	assert(type);
+	range = ((struct lysc_type_dec *)type)->range;
+	fraction_digits = ((struct lysc_type_dec *)type)->fraction_digits;
+	for (i = 0; i < fraction_digits; i++)
+		div = div * 10;
+
+	// Show defaults
+	if (!range) {
+		printf("[%.*f..%.*f]\n",
+			fraction_digits, (double)def_min / div,
+			fraction_digits, (double)def_max / div);
+		return;
+	}
+
+	// Range
+	faux_str_cat(&r, "[");
+	LY_ARRAY_FOR(range->parts, u) {
+		char *t = NULL;
+		if (u != 0)
+			faux_str_cat(&r, "|");
+		t = faux_str_sprintf("%.*f..%.*f",
+			fraction_digits, (double)range->parts[u].min_64 / div,
+			fraction_digits, (double)range->parts[u].max_64 / div);
 		faux_str_cat(&r, t);
 		faux_str_free(t);
 	}
@@ -884,7 +925,6 @@ static void pline_print_type_help(const struct lysc_node *node,
 
 	assert(type);
 	assert(node);
-
 
 	if (LY_TYPE_LEAFREF == type->basetype) {
 		struct lysc_type_leafref *t =
@@ -921,10 +961,6 @@ static void pline_print_type_help(const struct lysc_node *node,
 			uint_range(type, 0, ULLONG_MAX);
 			break;
 
-		case LY_TYPE_DEC64:
-			uint_range(type, 0, ULLONG_MAX);
-			break;
-
 		case LY_TYPE_INT8:
 			int_range(type, CHAR_MIN, CHAR_MAX);
 			break;
@@ -939,6 +975,10 @@ static void pline_print_type_help(const struct lysc_node *node,
 
 		case LY_TYPE_INT64:
 			int_range(type, LLONG_MIN, LLONG_MAX);
+			break;
+
+		case LY_TYPE_DEC64:
+			dec_range(type, LLONG_MIN, LLONG_MAX);
 			break;
 
 		case LY_TYPE_STRING:
