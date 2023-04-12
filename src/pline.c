@@ -918,6 +918,38 @@ static void dec_range(const struct lysc_type *type, int64_t def_min, int64_t def
 }
 
 
+static void str_range(const struct lysc_type *type)
+{
+	struct lysc_range *range = NULL;
+	LY_ARRAY_COUNT_TYPE u = 0;
+	char *r = NULL;
+
+	assert(type);
+	range = ((struct lysc_type_str *)type)->length;
+
+	// Show defaults
+	if (!range) {
+		printf("<string>\n");
+		return;
+	}
+
+	// Range
+	faux_str_cat(&r, "<string[");
+	LY_ARRAY_FOR(range->parts, u) {
+		char *t = NULL;
+		if (u != 0)
+			faux_str_cat(&r, "|");
+		t = faux_str_sprintf("%" PRIu64 "..%" PRIu64,
+			range->parts[u].min_u64, range->parts[u].max_u64);
+		faux_str_cat(&r, t);
+		faux_str_free(t);
+	}
+	faux_str_cat(&r, "]>\n");
+	printf("%s", r);
+	faux_free(r);
+}
+
+
 static void pline_print_type_help(const struct lysc_node *node,
 	const struct lysc_type *type)
 {
@@ -925,13 +957,6 @@ static void pline_print_type_help(const struct lysc_node *node,
 
 	assert(type);
 	assert(node);
-
-	if (LY_TYPE_LEAFREF == type->basetype) {
-		struct lysc_type_leafref *t =
-			(struct lysc_type_leafref *)type;
-		pline_print_type_help(node, t->realtype);
-		return;
-	}
 
 	if (node->nodetype & LYS_LEAF)
 		units = ((struct lysc_node_leaf *)node)->units;
@@ -982,11 +1007,17 @@ static void pline_print_type_help(const struct lysc_node *node,
 			break;
 
 		case LY_TYPE_STRING:
-			printf("<string>\n");
+			str_range(type);
 			break;
 
 		case LY_TYPE_BOOL:
 			printf("<true/false>\n");
+			break;
+
+		case LY_TYPE_LEAFREF:
+			struct lysc_type_leafref *t =
+				(struct lysc_type_leafref *)type;
+			pline_print_type_help(node, t->realtype);
 			break;
 
 		case LY_TYPE_UNION: {
