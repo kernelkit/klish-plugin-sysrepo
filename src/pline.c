@@ -551,13 +551,9 @@ static bool_t pline_parse_module(const struct lys_module *module, faux_argv_t *a
 							continue;
 
 						// Completion
-						if (!str) {
-//							if ((0 == specified_keys_num) &&
-//								!opts->first_key_w_stmt &&
-//								!first_key_is_optional) {
+						if (!str)
 							pline_add_compl(pline,
 								PCOMPL_NODE, cur_key->node, NULL);
-						}
 
 						if (opts->default_keys && cur_key->dflt) {
 							pexpr_xpath_add_list_key(pexpr,
