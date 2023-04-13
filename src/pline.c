@@ -267,6 +267,69 @@ void pline_debug(pline_t *pline)
 }
 
 
+static bool_t pexpr_xpath_add_node(pexpr_t *pexpr,
+	const char *prefix, const char *name)
+{
+	char *tmp = NULL;
+
+	assert(pexpr);
+	assert(prefix);
+	assert(name);
+
+	tmp = faux_str_sprintf("/%s:%s", prefix, name);
+	faux_str_cat(&pexpr->xpath, tmp);
+	faux_str_free(tmp);
+	pexpr->args_num++;
+	// Activate current expression. Because it really has
+	// new component
+	pexpr->active = BOOL_TRUE;
+
+	return BOOL_TRUE;
+}
+
+
+static bool_t pexpr_xpath_add_list_key(pexpr_t *pexpr,
+	const char *key, const char *value, bool_t inc_args_num)
+{
+	char *tmp = NULL;
+	char *escaped = NULL;
+
+	assert(pexpr);
+	assert(key);
+	assert(value);
+
+	escaped = faux_str_c_esc(value);
+	tmp = faux_str_sprintf("[%s=\"%s\"]", key, escaped);
+	faux_str_free(escaped);
+	faux_str_cat(&pexpr->xpath, tmp);
+	faux_str_cat(&pexpr->last_keys, tmp);
+	faux_str_free(tmp);
+	if (inc_args_num)
+		pexpr->args_num++;
+
+	return BOOL_TRUE;
+}
+
+
+static bool_t pexpr_xpath_add_leaflist_key(pexpr_t *pexpr,
+	const char *prefix, const char *value)
+{
+	char *tmp = NULL;
+
+	assert(pexpr);
+	assert(value);
+
+	tmp = faux_str_sprintf("[.='%s%s%s']",
+		prefix ? prefix : "", prefix ? ":" : "", value);
+	faux_str_cat(&pexpr->xpath, tmp);
+	faux_str_cat(&pexpr->last_keys, value);
+	faux_str_free(tmp);
+	pexpr->args_num++;
+
+	return BOOL_TRUE;
+}
+
+
 static bool_t pline_parse_module(const struct lys_module *module, faux_argv_t *argv,
 	pline_t *pline, pline_opts_t *opts)
 {
@@ -295,7 +358,6 @@ static bool_t pline_parse_module(const struct lys_module *module, faux_argv_t *a
 		rollback = BOOL_FALSE;
 
 		if (node && !is_rollback) {
-			char *tmp = NULL;
 
 			// Save rollback Xpath (for oneliners) before leaf node
 			// Only leaf and leaf-list node allows to "rollback"
@@ -308,15 +370,8 @@ static bool_t pline_parse_module(const struct lys_module *module, faux_argv_t *a
 			}
 
 			// Add current node to Xpath
-			tmp = faux_str_sprintf("/%s:%s",
+			pexpr_xpath_add_node(pexpr,
 				node->module->name, node->name);
-			faux_str_cat(&pexpr->xpath, tmp);
-			faux_str_free(tmp);
-			pexpr->args_num++;
-
-			// Activate current expression. Because it really has
-			// new component
-			pexpr->active = BOOL_TRUE;
 		}
 
 		// Root of the module
@@ -364,8 +419,6 @@ static bool_t pline_parse_module(const struct lys_module *module, faux_argv_t *a
 				if (!opts->keys_w_stmt) {
 
 					LY_LIST_FOR(lysc_node_child(node), iter) {
-						char *tmp = NULL;
-						char *escaped = NULL;
 						struct lysc_node_leaf *leaf =
 							(struct lysc_node_leaf *)iter;
 
@@ -395,14 +448,8 @@ static bool_t pline_parse_module(const struct lys_module *module, faux_argv_t *a
 							break;
 						}
 
-						escaped = faux_str_c_esc(str);
-						tmp = faux_str_sprintf("[%s=\"%s\"]",
-							leaf->name, escaped);
-						faux_str_free(escaped);
-						faux_str_cat(&pexpr->xpath, tmp);
-						faux_str_cat(&pexpr->last_keys, tmp);
-						faux_str_free(tmp);
-						pexpr->args_num++;
+						pexpr_xpath_add_list_key(pexpr,
+							leaf->name, str, BOOL_TRUE);
 						faux_argv_each(&arg);
 						str = (const char *)faux_argv_current(arg);
 						pexpr->pat = PAT_LIST_KEY_INCOMPLETED;
@@ -447,8 +494,6 @@ static bool_t pline_parse_module(const struct lys_module *module, faux_argv_t *a
 					}
 
 					while (specified_keys_num < faux_list_len(keys)) {
-						char *tmp = NULL;
-						char *escaped = NULL;
 
 						// First key without statement. Must be mandatory.
 						if ((0 == specified_keys_num) &&
@@ -487,16 +532,10 @@ static bool_t pline_parse_module(const struct lys_module *module, faux_argv_t *a
 							break;
 						}
 
-						escaped = faux_str_c_esc(str);
-						tmp = faux_str_sprintf("[%s=\"%s\"]",
-							cur_key->node->name, escaped);
-						faux_str_free(escaped);
-						faux_str_cat(&pexpr->xpath, tmp);
-						faux_str_cat(&pexpr->last_keys, tmp);
-						faux_str_free(tmp);
+						pexpr_xpath_add_list_key(pexpr,
+							cur_key->node->name, str, BOOL_TRUE);
 						cur_key->value = str;
 						specified_keys_num++;
-						pexpr->args_num++;
 						faux_argv_each(&arg);
 						str = (const char *)faux_argv_current(arg);
 						pexpr->pat = PAT_LIST_KEY_INCOMPLETED;
@@ -521,16 +560,9 @@ static bool_t pline_parse_module(const struct lys_module *module, faux_argv_t *a
 						}
 
 						if (opts->default_keys && cur_key->dflt) {
-							char *tmp = NULL;
-							char *escaped = NULL;
-
-							escaped = faux_str_c_esc(cur_key->dflt);
-							tmp = faux_str_sprintf("[%s=\"%s\"]",
-								cur_key->node->name, escaped);
-							faux_str_free(escaped);
-							faux_str_cat(&pexpr->xpath, tmp);
-							faux_str_cat(&pexpr->last_keys, tmp);
-							faux_str_free(tmp);
+							pexpr_xpath_add_list_key(pexpr,
+								cur_key->node->name,
+								cur_key->dflt, BOOL_FALSE);
 							pexpr->pat = PAT_LIST_KEY_INCOMPLETED;
 						} else { // Mandatory key is not specified
 							break_upper_loop = BOOL_TRUE;
@@ -608,7 +640,6 @@ static bool_t pline_parse_module(const struct lys_module *module, faux_argv_t *a
 
 		// Leaf-list
 		} else if (node->nodetype & LYS_LEAFLIST) {
-			char *tmp = NULL;
 			const char *prefix = NULL;
 			struct lysc_node_leaflist *leaflist =
 				(struct lysc_node_leaflist *)node;
@@ -641,12 +672,7 @@ static bool_t pline_parse_module(const struct lys_module *module, faux_argv_t *a
 					leaflist->type, str);
 			}
 
-			tmp = faux_str_sprintf("[.='%s%s%s']",
-			prefix ? prefix : "", prefix ? ":" : "", str);
-			faux_str_cat(&pexpr->xpath, tmp);
-			faux_str_cat(&pexpr->last_keys, str);
-			faux_str_free(tmp);
-			pexpr->args_num++;
+			pexpr_xpath_add_leaflist_key(pexpr, prefix, str);
 
 			// Expression was completed
 			// So rollback (for oneliners)
