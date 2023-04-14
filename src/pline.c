@@ -1082,7 +1082,22 @@ static void pline_print_type_help(const struct lysc_node *node,
 		case LY_TYPE_LEAFREF: {
 			const struct lysc_type_leafref *t =
 				(const struct lysc_type_leafref *)type;
-			pline_print_type_help(node, t->realtype);
+			const struct lysc_node *ref_node = NULL;
+			const struct lysc_type *ref_type = NULL;
+			char *node_path = lysc_path(node, LYSC_PATH_LOG, NULL, 0);
+			char *path = klysc_leafref_xpath(node, type, node_path);
+			faux_str_free(node_path);
+			ref_node = lys_find_path(NULL, node, path, 0);
+			faux_str_free(path);
+			if (!ref_node) {
+				pline_print_type_help(node, t->realtype);
+				return; // Because it prints whole info itself
+			}
+			if (ref_node->nodetype & LYS_LEAF)
+				ref_type = ((struct lysc_node_leaf *)ref_node)->type;
+			else
+				ref_type = ((struct lysc_node_leaflist *)ref_node)->type;
+			pline_print_type_help(ref_node, ref_type);
 			return; // Because it prints whole info itself
 		}
 
