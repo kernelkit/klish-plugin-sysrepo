@@ -340,28 +340,25 @@ static char *cut_trailing_components(const char *orig_xpath, size_t up_num)
 }
 
 
-char *klysc_leafref_xpath(const struct lysc_node *node, const char *node_path)
+char *klysc_leafref_xpath(const struct lysc_node *node,
+	const struct lysc_type *type, const char *node_path)
 {
 	char *compl_xpath = NULL;
-	const struct lysc_type *type = NULL;
 	const struct lysc_type_leafref *leafref = NULL;
 	const char *orig_xpath = NULL;
 	char *remaped_xpath = NULL;
 	const char *tmp = NULL;
 	size_t up_num = 0;
 
+	if (!type)
+		return NULL;
 	if (!node)
 		return NULL;
 	if (!(node->nodetype & (LYS_LEAF | LYS_LEAFLIST)))
 		return NULL;
-
-	if (node->nodetype & LYS_LEAF)
-		type = ((const struct lysc_node_leaf *)node)->type;
-	else
-		type = ((const struct lysc_node_leaflist *)node)->type;
-
 	if (type->basetype != LY_TYPE_LEAFREF)
 		return NULL;
+
 	leafref = (const struct lysc_type_leafref *)type;
 
 	orig_xpath = lyxp_get_expr(leafref->path);
