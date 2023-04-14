@@ -1060,7 +1060,7 @@ static void pline_print_type_help(const struct lysc_node *node,
 			const struct lysc_type_leafref *t =
 				(const struct lysc_type_leafref *)type;
 			pline_print_type_help(node, t->realtype);
-			break;
+			return; // Because it prints whole info itself
 		}
 
 		case LY_TYPE_UNION: {
@@ -1069,7 +1069,7 @@ static void pline_print_type_help(const struct lysc_node *node,
 			LY_ARRAY_COUNT_TYPE u = 0;
 			LY_ARRAY_FOR(t->types, u)
 				pline_print_type_help(node, t->types[u]);
-			break;
+			return; // Because it prints whole info itself
 		}
 
 		case LY_TYPE_ENUM: {
@@ -1081,7 +1081,6 @@ static void pline_print_type_help(const struct lysc_node *node,
 					t->enums[u].name,
 					t->enums[u].dsc ? t->enums[u].dsc : t->enums[u].name);
 			return; // Because it prints whole info itself
-			break;
 		}
 
 		case LY_TYPE_IDENT: {
@@ -1091,7 +1090,6 @@ static void pline_print_type_help(const struct lysc_node *node,
 			LY_ARRAY_FOR(t->bases, u)
 				identityref_help(t->bases[u]);
 			return; // Because it prints whole info itself
-			break;
 		}
 
 		default:
