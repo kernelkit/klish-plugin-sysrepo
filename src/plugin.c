@@ -100,9 +100,6 @@ int kplugin_sysrepo_init(kcontext_t *context)
 
 	kplugin_set_udata(plugin, udata);
 
-	// Logging
-	srp_set_log_func();
-
 	return 0;
 }
 

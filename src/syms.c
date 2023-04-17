@@ -26,21 +26,6 @@
 #define ERRORMSG "Error: "
 
 
-static void _log(LY_LOG_LEVEL level, const char *msg, const char *path)
-{
-	fprintf(stderr, ERRORMSG "%s. %s\n", msg, path ? path : "");
-	level = level;
-}
-
-
-int srp_set_log_func(void)
-{
-	ly_set_log_clb(_log, 1);
-
-	return 0;
-}
-
-
 // Print sysrepo session errors
 static void srp_print_errors(sr_session_ctx_t *session)
 {
@@ -360,9 +345,12 @@ int srp_set(kcontext_t *context)
 
 	assert(context);
 
-	if (sr_connect(SR_CONN_DEFAULT, &conn))
+	if (sr_connect(SR_CONN_DEFAULT, &conn)) {
+		fprintf(stderr, ERRORMSG "Can't connect to data store\n");
 		return -1;
+	}
 	if (sr_session_start(conn, SRP_REPO_EDIT, &sess)) {
+		fprintf(stderr, ERRORMSG "Can't start data store session\n");
 		sr_disconnect(conn);
 		return -1;
 	}
@@ -425,9 +413,12 @@ int srp_del(kcontext_t *context)
 
 	assert(context);
 
-	if (sr_connect(SR_CONN_DEFAULT, &conn))
+	if (sr_connect(SR_CONN_DEFAULT, &conn)) {
+		fprintf(stderr, ERRORMSG "Can't connect to data store\n");
 		return -1;
+	}
 	if (sr_session_start(conn, SRP_REPO_EDIT, &sess)) {
+		fprintf(stderr, ERRORMSG "Can't start data store session\n");
 		sr_disconnect(conn);
 		return -1;
 	}
@@ -482,9 +473,12 @@ int srp_edit(kcontext_t *context)
 
 	assert(context);
 
-	if (sr_connect(SR_CONN_DEFAULT, &conn))
+	if (sr_connect(SR_CONN_DEFAULT, &conn)) {
+		fprintf(stderr, ERRORMSG "Can't connect to data store\n");
 		return -1;
+	}
 	if (sr_session_start(conn, SRP_REPO_EDIT, &sess)) {
+		fprintf(stderr, ERRORMSG "Can't start data store session\n");
 		sr_disconnect(conn);
 		return -1;
 	}
@@ -554,9 +548,12 @@ int srp_up(kcontext_t *context)
 	if (!cur_path)
 		return -1; // It's top level and can't level up
 
-	if (sr_connect(SR_CONN_DEFAULT, &conn))
+	if (sr_connect(SR_CONN_DEFAULT, &conn)) {
+		fprintf(stderr, ERRORMSG "Can't connect to data store\n");
 		return -1;
+	}
 	if (sr_session_start(conn, SRP_REPO_EDIT, &sess)) {
+		fprintf(stderr, ERRORMSG "Can't start data store session\n");
 		sr_disconnect(conn);
 		return -1;
 	}
@@ -618,9 +615,12 @@ int srp_insert(kcontext_t *context)
 
 	assert(context);
 
-	if (sr_connect(SR_CONN_DEFAULT, &conn))
+	if (sr_connect(SR_CONN_DEFAULT, &conn)) {
+		fprintf(stderr, ERRORMSG "Can't connect to data store\n");
 		return -1;
+	}
 	if (sr_session_start(conn, SRP_REPO_EDIT, &sess)) {
+		fprintf(stderr, ERRORMSG "Can't start data store session\n");
 		sr_disconnect(conn);
 		return -1;
 	}
@@ -721,13 +721,13 @@ int srp_verify(kcontext_t *context)
 	assert(context);
 
 	if (sr_connect(SR_CONN_DEFAULT, &conn)) {
-		fprintf(stderr, ERRORMSG "Can't connect to data repository\n");
+		fprintf(stderr, ERRORMSG "Can't connect to data store\n");
 		return -1;
 	}
-
 	if (sr_session_start(conn, SRP_REPO_EDIT, &sess)) {
-		fprintf(stderr, ERRORMSG "Can't connect to candidate data store\n");
-		goto err;
+		fprintf(stderr, ERRORMSG "Can't start data store session\n");
+		sr_disconnect(conn);
+		return -1;
 	}
 
 	// Validate candidate config
@@ -754,13 +754,13 @@ int srp_commit(kcontext_t *context)
 	assert(context);
 
 	if (sr_connect(SR_CONN_DEFAULT, &conn)) {
-		fprintf(stderr, ERRORMSG "Can't connect to data repository\n");
+		fprintf(stderr, ERRORMSG "Can't connect to data store\n");
 		return -1;
 	}
-
 	if (sr_session_start(conn, SRP_REPO_EDIT, &sess)) {
-		fprintf(stderr, ERRORMSG "Can't connect to candidate data store\n");
-		goto err;
+		fprintf(stderr, ERRORMSG "Can't start data store session\n");
+		sr_disconnect(conn);
+		return -1;
 	}
 
 	// Copy candidate to running-config
@@ -802,15 +802,16 @@ int srp_reset(kcontext_t *context)
 	assert(context);
 
 	if (sr_connect(SR_CONN_DEFAULT, &conn)) {
-		fprintf(stderr, ERRORMSG "Can't connect to data repository\n");
+		fprintf(stderr, ERRORMSG "Can't connect to data store\n");
+		return -1;
+	}
+	if (sr_session_start(conn, SRP_REPO_EDIT, &sess)) {
+		fprintf(stderr, ERRORMSG "Can't start data store session\n");
+		sr_disconnect(conn);
 		return -1;
 	}
 
 	// Copy running-config to candidate config
-	if (sr_session_start(conn, SRP_REPO_EDIT, &sess)) {
-		fprintf(stderr, ERRORMSG "Can't connect to candidate data store\n");
-		goto err;
-	}
 	if (sr_copy_config(sess, NULL, SR_DS_RUNNING, 0) != SR_ERR_OK) {
 		srp_print_errors(sess);
 		fprintf(stderr, ERRORMSG "Can't reset to running-config\n");
@@ -839,9 +840,12 @@ int srp_show_xml(kcontext_t *context)
 
 	assert(context);
 
-	if (sr_connect(SR_CONN_DEFAULT, &conn))
+	if (sr_connect(SR_CONN_DEFAULT, &conn)) {
+		fprintf(stderr, ERRORMSG "Can't connect to data store\n");
 		return -1;
+	}
 	if (sr_session_start(conn, SRP_REPO_EDIT, &sess)) {
+		fprintf(stderr, ERRORMSG "Can't start data store session\n");
 		sr_disconnect(conn);
 		return -1;
 	}
@@ -910,9 +914,12 @@ static int show(kcontext_t *context, sr_datastore_t ds)
 
 	assert(context);
 
-	if (sr_connect(SR_CONN_DEFAULT, &conn))
+	if (sr_connect(SR_CONN_DEFAULT, &conn)) {
+		fprintf(stderr, ERRORMSG "Can't connect to data store\n");
 		return -1;
+	}
 	if (sr_session_start(conn, ds, &sess)) {
+		fprintf(stderr, ERRORMSG "Can't start data store session\n");
 		sr_disconnect(conn);
 		return -1;
 	}
@@ -971,9 +978,12 @@ int srp_show_running(kcontext_t *context)
 	sr_conn_ctx_t *conn = NULL;
 	sr_session_ctx_t *sess = NULL;
 
-	if (sr_connect(SR_CONN_DEFAULT, &conn))
+	if (sr_connect(SR_CONN_DEFAULT, &conn)) {
+		fprintf(stderr, ERRORMSG "Can't connect to data store\n");
 		return -1;
+	}
 	if (sr_session_start(conn, SR_DS_RUNNING, &sess)) {
+		fprintf(stderr, ERRORMSG "Can't start data store session\n");
 		sr_disconnect(conn);
 		return -1;
 	}
@@ -998,9 +1008,12 @@ int srp_deactivate(kcontext_t *context)
 
 	assert(context);
 
-	if (sr_connect(SR_CONN_DEFAULT, &conn))
+	if (sr_connect(SR_CONN_DEFAULT, &conn)) {
+		fprintf(stderr, ERRORMSG "Can't connect to data store\n");
 		return -1;
+	}
 	if (sr_session_start(conn, SRP_REPO_EDIT, &sess)) {
+		fprintf(stderr, ERRORMSG "Can't start data store session\n");
 		sr_disconnect(conn);
 		return -1;
 	}
@@ -1085,13 +1098,17 @@ int srp_diff(kcontext_t *context)
 
 	assert(context);
 
-	if (sr_connect(SR_CONN_DEFAULT, &conn))
+	if (sr_connect(SR_CONN_DEFAULT, &conn)) {
+		fprintf(stderr, ERRORMSG "Can't connect to data store\n");
 		return -1;
+	}
 	if (sr_session_start(conn, SR_DS_RUNNING, &sess1)) {
+		fprintf(stderr, ERRORMSG "Can't start data store session\n");
 		sr_disconnect(conn);
 		return -1;
 	}
 	if (sr_session_start(conn, SRP_REPO_EDIT, &sess2)) {
+		fprintf(stderr, ERRORMSG "Can't start data store session\n");
 		sr_disconnect(conn);
 		return -1;
 	}
