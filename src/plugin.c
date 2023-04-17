@@ -100,6 +100,9 @@ int kplugin_sysrepo_init(kcontext_t *context)
 
 	kplugin_set_udata(plugin, udata);
 
+	// Logging
+	ly_log_options(LY_LOSTORE);
+
 	return 0;
 }
 

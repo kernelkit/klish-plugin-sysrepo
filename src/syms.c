@@ -30,9 +30,13 @@
 static void srp_print_errors(sr_session_ctx_t *session)
 {
 	const sr_error_info_t *err_info = NULL;
-	int rc = sr_session_get_error(session, &err_info);
+	int rc = 0;
 	unsigned int i = 0;
 
+	if (!session)
+		return;
+
+	rc = sr_session_get_error(session, &err_info);
 	if ((rc != SR_ERR_OK) || !err_info)
 		return;
 	// Show the first error only. Because probably next errors are
@@ -40,6 +44,20 @@ static void srp_print_errors(sr_session_ctx_t *session)
 //	for (i = 0; i < err_info->err_count; i++)
 	for (i = 0; i < (err_info->err_count < 1 ? err_info->err_count : 1); i++)
 		fprintf(stderr, ERRORMSG "%s\n", err_info->err[i].message);
+}
+
+
+// Print sysrepo session errors and then specified error
+static void srp_error(sr_session_ctx_t *session, const char *fmt, ...)
+{
+	srp_print_errors(session);
+
+	if (fmt) {
+		va_list argptr;
+		va_start(argptr, fmt);
+		vfprintf(stderr, fmt, argptr);
+		va_end(argptr);
+	}
 }
 
 
@@ -376,7 +394,7 @@ int srp_set(kcontext_t *context)
 		if (sr_set_item_str(sess, expr->xpath, expr->value, NULL, 0) !=
 			SR_ERR_OK) {
 			err_num++;
-			fprintf(stderr, ERRORMSG "Can't set data\n");
+			srp_error(sess, ERRORMSG "Can't set data\n");
 			break;
 		}
 	}
@@ -391,7 +409,10 @@ int srp_set(kcontext_t *context)
 		goto cleanup;
 	}
 
-	sr_apply_changes(sess, 0);
+	if (sr_apply_changes(sess, 0) != SR_ERR_OK) {
+		srp_error(sess, ERRORMSG "Can't apply changes\n");
+		goto cleanup;
+	}
 
 cleanup:
 	pline_free(pline);
@@ -446,11 +467,14 @@ int srp_del(kcontext_t *context)
 	}
 
 	if (sr_delete_item(sess, expr->xpath, 0) != SR_ERR_OK) {
-		fprintf(stderr, ERRORMSG "Can't delete data\n");
+		srp_error(sess, ERRORMSG "Can't delete data\n");
 		goto err;
 	}
 
-	sr_apply_changes(sess, 0);
+	if (sr_apply_changes(sess, 0) != SR_ERR_OK) {
+		srp_error(sess, ERRORMSG "Can't apply changes\n");
+		goto err;
+	}
 
 	ret = 0;
 err:
@@ -505,11 +529,14 @@ int srp_edit(kcontext_t *context)
 	}
 
 	if (sr_set_item_str(sess, expr->xpath, NULL, NULL, 0) != SR_ERR_OK) {
-		fprintf(stderr, ERRORMSG "Can't set editing data\n");
+		srp_error(sess, ERRORMSG "Can't set editing data\n");
 		goto err;
 	}
 
-	sr_apply_changes(sess, 0);
+	if (sr_apply_changes(sess, 0) != SR_ERR_OK) {
+		srp_error(sess, ERRORMSG "Can't apply changes\n");
+		goto err;
+	}
 
 	// Set new current path
 	srp_udata_set_path(context, args);
@@ -696,11 +723,14 @@ int srp_insert(kcontext_t *context)
 
 	if (sr_move_item(sess, expr->xpath, position,
 		list_keys, leaflist_value, NULL, 0) != SR_ERR_OK) {
-		fprintf(stderr, ERRORMSG "Can't move element\n");
+		srp_error(sess, ERRORMSG "Can't move element\n");
 		goto err;
 	}
 
-	sr_apply_changes(sess, 0);
+	if (sr_apply_changes(sess, 0) != SR_ERR_OK) {
+		srp_error(sess, ERRORMSG "Can't apply changes\n");
+		goto err;
+	}
 
 	ret = 0;
 err:
@@ -732,8 +762,7 @@ int srp_verify(kcontext_t *context)
 
 	// Validate candidate config
 	if (sr_validate(sess, NULL, 0) != SR_ERR_OK) {
-		srp_print_errors(sess);
-		fprintf(stderr, ERRORMSG "Invalid candidate configuration\n");
+		srp_error(sess, ERRORMSG "Invalid candidate configuration\n");
 		goto err;
 	}
 
@@ -765,23 +794,21 @@ int srp_commit(kcontext_t *context)
 
 	// Copy candidate to running-config
 	if (sr_session_switch_ds(sess, SR_DS_RUNNING)) {
-		fprintf(stderr, ERRORMSG "Can't connect to running-config data store\n");
+		srp_error(sess, ERRORMSG "Can't connect to running-config data store\n");
 		goto err;
 	}
 	if (sr_copy_config(sess, NULL, SRP_REPO_EDIT, 0) != SR_ERR_OK) {
-		srp_print_errors(sess);
-		fprintf(stderr, ERRORMSG "Can't commit to running-config\n");
+		srp_error(sess, ERRORMSG "Can't commit to running-config\n");
 		goto err;
 	}
 
 	// Copy running-config to startup-config
 	if (sr_session_switch_ds(sess, SR_DS_STARTUP)) {
-		fprintf(stderr, ERRORMSG "Can't connect to startup-config data store\n");
+		srp_error(sess, ERRORMSG "Can't connect to startup-config data store\n");
 		goto err;
 	}
 	if (sr_copy_config(sess, NULL, SR_DS_RUNNING, 0) != SR_ERR_OK) {
-		srp_print_errors(sess);
-		fprintf(stderr, ERRORMSG "Can't store data to startup-config\n");
+		srp_error(sess, ERRORMSG "Can't store data to startup-config\n");
 		goto err;
 	}
 
@@ -813,8 +840,7 @@ int srp_reset(kcontext_t *context)
 
 	// Copy running-config to candidate config
 	if (sr_copy_config(sess, NULL, SR_DS_RUNNING, 0) != SR_ERR_OK) {
-		srp_print_errors(sess);
-		fprintf(stderr, ERRORMSG "Can't reset to running-config\n");
+		srp_error(sess, ERRORMSG "Can't reset to running-config\n");
 		goto err;
 	}
 
@@ -872,7 +898,7 @@ int srp_show_xml(kcontext_t *context)
 	}
 
 	if (sr_get_subtree(sess, expr->xpath, 0, &data) != SR_ERR_OK) {
-		fprintf(stderr, ERRORMSG "Can't get specified subtree\n");
+		srp_error(sess, ERRORMSG "Can't get specified subtree\n");
 		goto err;
 	}
 
@@ -884,7 +910,6 @@ int srp_show_xml(kcontext_t *context)
 //		ly_out_new_file(stdout, &out);
 //		lyd_print_all(out, child, LYD_XML, 0);
 //	}
-
 
 	struct lyd_meta *meta = lyd_find_meta(data->tree->meta, NULL, "junos-configuration-metadata:active");
 	if (meta)
@@ -1040,7 +1065,7 @@ int srp_deactivate(kcontext_t *context)
 	}
 
 	if (sr_get_subtree(sess, expr->xpath, 0, &data) != SR_ERR_OK) {
-		fprintf(stderr, ERRORMSG "Can't get specified subtree\n");
+		srp_error(sess, ERRORMSG "Can't get specified subtree\n");
 		goto err;
 	}
 	if (lyd_new_meta(LYD_CTX(data->tree), data->tree, NULL,
@@ -1056,14 +1081,12 @@ int srp_deactivate(kcontext_t *context)
 	if (sr_has_changes(sess))
 		fprintf(stderr, ERRORMSG "Has changes\n");
 
-	if (sr_apply_changes(sess, 0)) {
-		fprintf(stderr, ERRORMSG "Can't apply changes\n");
-	}
+	if (sr_apply_changes(sess, 0) != SR_ERR_OK)
+		srp_error(sess, ERRORMSG "Can't apply changes\n");
 	sr_release_data(data);
 
-
 	if (sr_get_subtree(sess, expr->xpath, 0, &data) != SR_ERR_OK) {
-		fprintf(stderr, ERRORMSG "Can't get specified subtree\n");
+		srp_error(sess, ERRORMSG "Can't get specified subtree\n");
 		goto err;
 	}
 
@@ -1152,16 +1175,16 @@ int srp_diff(kcontext_t *context)
 		xpath = "/*";
 
 	if (sr_get_data(sess1, xpath, 0, 0, 0, &data1) != SR_ERR_OK) {
-		fprintf(stderr, ERRORMSG "Can't get specified subtree\n");
+		srp_error(sess1, ERRORMSG "Can't get specified subtree\n");
 		goto err;
 	}
 	if (sr_get_data(sess2, xpath, 0, 0, 0, &data2) != SR_ERR_OK) {
-		fprintf(stderr, ERRORMSG "Can't get specified subtree\n");
+		srp_error(sess2, ERRORMSG "Can't get specified subtree\n");
 		goto err;
 	}
 
 	if (lyd_diff_siblings(data1->tree, data2->tree, 0, &diff) != LY_SUCCESS) {
-		fprintf(stderr, ERRORMSG "Can't generate diff\n");
+		srp_error(sess2, ERRORMSG "Can't generate diff\n");
 		goto err;
 	}
 
