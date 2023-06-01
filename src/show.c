@@ -87,6 +87,7 @@ static void show_list(const struct lyd_node *node, size_t level,
 	char begin_bracket[3] = {' ', opts->begin_bracket, '\0'};
 	const struct lyd_node *iter = NULL;
 	bool_t first_key = BOOL_TRUE;
+	const char *default_value = NULL;
 
 	if (!node)
 		return;
@@ -103,11 +104,20 @@ static void show_list(const struct lyd_node *node, size_t level,
 			continue;
 		if (!(iter->schema->flags & LYS_KEY))
 			continue;
+
+		default_value = klysc_node_ext_default(iter->schema);
+		value = klyd_node_value(iter);
+		// Don't show "default" keys with default values
+		if (opts->default_keys &&
+			!opts->show_default_keys && default_value &&
+			(faux_str_cmp(default_value, value) == 0)) {
+			faux_str_free(value);
+			continue;
+		}
 		if (opts->keys_w_stmt && (!first_key || (first_key &&
 			(opts->first_key_w_stmt ||
-			(opts->default_keys && klysc_node_ext_default(iter->schema))))))
+			(opts->default_keys && default_value)))))
 			printf(" %s", iter->schema->name);
-		value = klyd_node_value(iter);
 		printf(" %s", value);
 		faux_str_free(value);
 		first_key = BOOL_FALSE;

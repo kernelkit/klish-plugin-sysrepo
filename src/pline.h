@@ -121,6 +121,7 @@ typedef struct {
 	bool_t colorize;
 	uint8_t indent;
 	bool_t default_keys;
+	bool_t show_default_keys;
 	bool_t hide_passwords;
 } pline_opts_t;
 

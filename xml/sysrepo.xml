@@ -12,6 +12,7 @@
 	Colorize = y
 	Indent = 2
 	DefaultKeys = n
+	ShowDefaultKeys = n
 	HidePasswords = y
 </PLUGIN>
 
