@@ -97,6 +97,7 @@ int kplugin_sysrepo_init(kcontext_t *context)
 	udata->opts.default_keys = BOOL_FALSE;
 	udata->opts.show_default_keys = BOOL_FALSE;
 	udata->opts.hide_passwords = BOOL_TRUE;
+	udata->opts.enable_nacm = BOOL_FALSE;
 	parse_plugin_conf(kplugin_conf(plugin), &udata->opts);
 
 	kplugin_set_udata(plugin, udata);
@@ -241,6 +242,13 @@ static int parse_plugin_conf(const char *conf, pline_opts_t *opts)
 			opts->hide_passwords = BOOL_TRUE;
 		else if (faux_str_cmp(val, "n") == 0)
 			opts->hide_passwords = BOOL_FALSE;
+	}
+
+	if ((val = faux_ini_find(ini, "EnableNACM"))) {
+		if (faux_str_cmp(val, "y") == 0)
+			opts->enable_nacm = BOOL_TRUE;
+		else if (faux_str_cmp(val, "n") == 0)
+			opts->enable_nacm = BOOL_FALSE;
 	}
 
 	faux_ini_free(ini);

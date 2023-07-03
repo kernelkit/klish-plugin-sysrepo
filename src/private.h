@@ -73,9 +73,6 @@ bool_t show_xpath(sr_session_ctx_t *sess, const char *xpath, pline_opts_t *opts)
 void show_subtree(const struct lyd_node *nodes_list, size_t level,
 	enum diff_op op, pline_opts_t *opts);
 
-// Sysrepo copy-paste
-int sr_module_is_internal(const struct lys_module *ly_mod);
-
 // kly helper library
 typedef struct {
 	const struct lysc_node *node;

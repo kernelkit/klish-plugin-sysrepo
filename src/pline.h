@@ -123,6 +123,7 @@ typedef struct {
 	bool_t default_keys;
 	bool_t show_default_keys;
 	bool_t hide_passwords;
+	bool_t enable_nacm;
 } pline_opts_t;
 
 
