@@ -389,3 +389,24 @@ char *klysc_leafref_xpath(const struct lysc_node *node,
 	return compl_xpath;
 }
 
+
+bool_t klyd_is_oneliner(const struct lyd_node *node)
+{
+	const struct lyd_node *nodes_list = NULL;
+	const struct lyd_node *iter = NULL;
+	size_t i = 0;
+
+	if (!node)
+		return BOOL_TRUE;
+	nodes_list = lyd_child(node);
+	if(!nodes_list)
+		return BOOL_TRUE;
+
+	LY_LIST_FOR(nodes_list, iter) {
+		i++;
+		if (i > 1)
+			return BOOL_FALSE;
+	}
+
+	return BOOL_TRUE;
+}

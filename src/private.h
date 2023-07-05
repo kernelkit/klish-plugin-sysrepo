@@ -94,6 +94,7 @@ char *klysc_leafref_xpath(const struct lysc_node *node,
 	const struct lysc_type *type, const char *node_path);
 const char *klysc_identityref_prefix(struct lysc_type_identityref *type,
 	const char *name);
+bool_t klyd_is_oneliner(const struct lyd_node *node);
 
 C_DECL_END
 
