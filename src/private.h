@@ -71,7 +71,7 @@ enum diff_op {
 
 bool_t show_xpath(sr_session_ctx_t *sess, const char *xpath, pline_opts_t *opts);
 void show_subtree(const struct lyd_node *nodes_list, size_t level,
-	enum diff_op op, pline_opts_t *opts);
+	enum diff_op op, pline_opts_t *opts, bool_t parent_is_oneliner);
 
 // kly helper library
 typedef struct {
@@ -94,7 +94,7 @@ char *klysc_leafref_xpath(const struct lysc_node *node,
 	const struct lysc_type *type, const char *node_path);
 const char *klysc_identityref_prefix(struct lysc_type_identityref *type,
 	const char *name);
-bool_t klyd_is_oneliner(const struct lyd_node *node);
+size_t klyd_child_num(const struct lyd_node *node);
 
 C_DECL_END
 

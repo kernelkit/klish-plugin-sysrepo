@@ -390,23 +390,29 @@ char *klysc_leafref_xpath(const struct lysc_node *node,
 }
 
 
-bool_t klyd_is_oneliner(const struct lyd_node *node)
+size_t klyd_child_num(const struct lyd_node *node)
 {
 	const struct lyd_node *nodes_list = NULL;
 	const struct lyd_node *iter = NULL;
-	size_t i = 0;
+	size_t num = 0;
 
 	if (!node)
-		return BOOL_TRUE;
+		return 0;
 	nodes_list = lyd_child(node);
 	if(!nodes_list)
-		return BOOL_TRUE;
+		return 0;
 
 	LY_LIST_FOR(nodes_list, iter) {
-		i++;
-		if (i > 1)
-			return BOOL_FALSE;
+		if (iter->flags & LYD_DEFAULT)
+			continue;
+		if (!(iter->schema->nodetype & SRP_NODETYPE_CONF))
+			continue;
+		if (!(iter->schema->flags & LYS_CONFIG_W)) // config is true
+			continue;
+		if (iter->schema->flags & LYS_KEY)
+			continue;
+		num++;
 	}
 
-	return BOOL_TRUE;
+	return num;
 }

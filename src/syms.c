@@ -1188,7 +1188,7 @@ int srp_diff(kcontext_t *context)
 		goto err;
 	}
 
-	show_subtree(diff, 0, DIFF_OP_NONE, srp_udata_opts(context));
+	show_subtree(diff, 0, DIFF_OP_NONE, srp_udata_opts(context), BOOL_FALSE);
 	lyd_free_siblings(diff);
 
 	ret = 0;

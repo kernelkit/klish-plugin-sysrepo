@@ -20,15 +20,15 @@
 
 
 static void show_container(const struct lyd_node *node, size_t level,
-	enum diff_op op, pline_opts_t *opts);
+	enum diff_op op, pline_opts_t *opts, bool_t parent_is_oneliner);
 static void show_list(const struct lyd_node *node, size_t level,
-	enum diff_op op, pline_opts_t *opts);
+	enum diff_op op, pline_opts_t *opts, bool_t parent_is_oneliner);
 static void show_leaf(const struct lyd_node *node, size_t level,
-	enum diff_op op, pline_opts_t *opts);
+	enum diff_op op, pline_opts_t *opts, bool_t parent_is_oneliner);
 static void show_leaflist(const struct lyd_node *node, size_t level,
-	enum diff_op op, pline_opts_t *opts);
+	enum diff_op op, pline_opts_t *opts, bool_t parent_is_oneliner);
 static void show_node(const struct lyd_node *node, size_t level,
-	enum diff_op op, pline_opts_t *opts);
+	enum diff_op op, pline_opts_t *opts, bool_t parent_is_oneliner);
 static enum diff_op str2diff_op(const char *str);
 
 
@@ -57,21 +57,31 @@ static const char *diff_suffix(enum diff_op op, pline_opts_t *opts)
 
 
 static void show_container(const struct lyd_node *node, size_t level,
-	enum diff_op op, pline_opts_t *opts)
+	enum diff_op op, pline_opts_t *opts, bool_t parent_is_oneliner)
 {
 	char begin_bracket[3] = {' ', opts->begin_bracket, '\0'};
+	size_t child_num = 0;
 
 	if (!node)
 		return;
 
-	printf("%s%*s%s%s%s\n",
+	if (opts->oneliners)
+		child_num = klyd_child_num(node);
+	else
+		child_num = 2; // Bogus value to be non-oneliner
+
+	printf("%s%*s%s%s%s%s",
 		diff_prefix(op, opts),
-		(int)(level * opts->indent), "",
+		parent_is_oneliner ? 1 : (int)(level * opts->indent), "",
 		node->schema->name,
-		opts->show_brackets ? begin_bracket : "",
-		diff_suffix(op, opts));
-	show_subtree(lyd_child(node), level + 1, op, opts);
-	if (opts->show_brackets) {
+		(opts->show_brackets && (child_num > 1)) ? begin_bracket : "",
+		diff_suffix(op, opts),
+		(child_num != 1) ? "\n" : "");
+	if (child_num != 0)
+		show_subtree(lyd_child(node),
+			(child_num <= 1) ? level : (level + 1),
+			op, opts, (child_num <= 1));
+	if (opts->show_brackets && (child_num > 1)) {
 		printf("%s%*s%c%s\n",
 			diff_prefix(op, opts),
 			(int)(level * opts->indent), "",
@@ -82,19 +92,25 @@ static void show_container(const struct lyd_node *node, size_t level,
 
 
 static void show_list(const struct lyd_node *node, size_t level,
-	enum diff_op op, pline_opts_t *opts)
+	enum diff_op op, pline_opts_t *opts, bool_t parent_is_oneliner)
 {
 	char begin_bracket[3] = {' ', opts->begin_bracket, '\0'};
 	const struct lyd_node *iter = NULL;
 	bool_t first_key = BOOL_TRUE;
 	const char *default_value = NULL;
+	size_t child_num = 0;
 
 	if (!node)
 		return;
 
+	if (opts->oneliners)
+		child_num = klyd_child_num(node);
+	else
+		child_num = 2; // Bogus value to be non-oneliner
+
 	printf("%s%*s%s",
 		diff_prefix(op, opts),
-		(int)(level * opts->indent), "",
+		parent_is_oneliner ? 1 : (int)(level * opts->indent), "",
 		node->schema->name);
 
 	LY_LIST_FOR(lyd_child(node), iter) {
@@ -122,11 +138,15 @@ static void show_list(const struct lyd_node *node, size_t level,
 		faux_str_free(value);
 		first_key = BOOL_FALSE;
 	}
-	printf("%s%s\n",
-		opts->show_brackets ? begin_bracket : "",
-		diff_suffix(op, opts));
-	show_subtree(lyd_child(node), level + 1, op, opts);
-	if (opts->show_brackets) {
+	printf("%s%s%s",
+		(opts->show_brackets && (child_num > 1)) ? begin_bracket : "",
+		diff_suffix(op, opts),
+		(child_num != 1) ? "\n" : "");
+	if (child_num != 0)
+		show_subtree(lyd_child(node),
+			(child_num <= 1) ? level : (level + 1),
+			op, opts, (child_num <= 1));
+	if (opts->show_brackets && (child_num > 1)) {
 		printf("%s%*s%c%s\n",
 			diff_prefix(op, opts),
 			(int)(level * opts->indent), "",
@@ -137,7 +157,7 @@ static void show_list(const struct lyd_node *node, size_t level,
 
 
 static void show_leaf(const struct lyd_node *node, size_t level,
-	enum diff_op op, pline_opts_t *opts)
+	enum diff_op op, pline_opts_t *opts, bool_t parent_is_oneliner)
 {
 	struct lysc_node_leaf *leaf = (struct lysc_node_leaf *)node;
 
@@ -148,7 +168,7 @@ static void show_leaf(const struct lyd_node *node, size_t level,
 
 	printf("%s%*s%s",
 		diff_prefix(op, opts),
-		(int)(level * opts->indent), "",
+		parent_is_oneliner ? 1 : (int)(level * opts->indent), "",
 		node->schema->name);
 
 	leaf = (struct lysc_node_leaf *)node->schema;
@@ -170,7 +190,7 @@ static void show_leaf(const struct lyd_node *node, size_t level,
 
 
 static void show_leaflist(const struct lyd_node *node, size_t level,
-	enum diff_op op, pline_opts_t *opts)
+	enum diff_op op, pline_opts_t *opts, bool_t parent_is_oneliner)
 {
 	char *value = NULL;
 
@@ -180,7 +200,7 @@ static void show_leaflist(const struct lyd_node *node, size_t level,
 	value = klyd_node_value(node);
 	printf("%s%*s%s %s%s%s\n",
 		diff_prefix(op, opts),
-		(int)(level * opts->indent), "",
+		parent_is_oneliner ? 1 : (int)(level * opts->indent), "",
 		node->schema->name,
 		value,
 		opts->show_semicolons ? ";" : "",
@@ -190,7 +210,7 @@ static void show_leaflist(const struct lyd_node *node, size_t level,
 
 
 static void show_node(const struct lyd_node *node, size_t level,
-	enum diff_op op, pline_opts_t *opts)
+	enum diff_op op, pline_opts_t *opts, bool_t parent_is_oneliner)
 {
 	const struct lysc_node *schema = NULL;
 	struct lyd_meta *meta = NULL;
@@ -215,19 +235,19 @@ static void show_node(const struct lyd_node *node, size_t level,
 
 	// Container
 	if (schema->nodetype & LYS_CONTAINER) {
-		show_container(node, level, cur_op, opts);
+		show_container(node, level, cur_op, opts, parent_is_oneliner);
 
 	// List
 	} else if (schema->nodetype & LYS_LIST) {
-		show_list(node, level, cur_op, opts);
+		show_list(node, level, cur_op, opts, parent_is_oneliner);
 
 	// Leaf
 	} else if (schema->nodetype & LYS_LEAF) {
-		show_leaf(node, level, cur_op, opts);
+		show_leaf(node, level, cur_op, opts, parent_is_oneliner);
 
 	// Leaf-list
 	} else if (schema->nodetype & LYS_LEAFLIST) {
-		show_leaflist(node, level, cur_op, opts);
+		show_leaflist(node, level, cur_op, opts, parent_is_oneliner);
 
 	} else {
 		return;
@@ -236,7 +256,7 @@ static void show_node(const struct lyd_node *node, size_t level,
 
 
 static void show_sorted_list(faux_list_t *list, size_t level,
-	enum diff_op op, pline_opts_t *opts)
+	enum diff_op op, pline_opts_t *opts, bool_t parent_is_oneliner)
 {
 	faux_list_node_t *iter = NULL;
 	const struct lyd_node *lyd = NULL;
@@ -246,7 +266,7 @@ static void show_sorted_list(faux_list_t *list, size_t level,
 
 	iter = faux_list_head(list);
 	while ((lyd = (const struct lyd_node *)faux_list_each(&iter)))
-		show_node(lyd, level, op, opts);
+		show_node(lyd, level, op, opts, parent_is_oneliner);
 }
 
 
@@ -300,7 +320,7 @@ static int leaflist_compare(const void *first, const void *second)
 
 
 void show_subtree(const struct lyd_node *nodes_list, size_t level,
-	enum diff_op op, pline_opts_t *opts)
+	enum diff_op op, pline_opts_t *opts, bool_t parent_is_oneliner)
 {
 	const struct lyd_node *iter = NULL;
 	faux_list_t *list = NULL;
@@ -316,7 +336,7 @@ void show_subtree(const struct lyd_node *nodes_list, size_t level,
 				faux_list_add(list, (void *)iter);
 				continue;
 			}
-			show_sorted_list(list, level, op, opts);
+			show_sorted_list(list, level, op, opts, parent_is_oneliner);
 			faux_list_free(list);
 			list = NULL;
 			saved_lysc = NULL;
@@ -337,11 +357,11 @@ void show_subtree(const struct lyd_node *nodes_list, size_t level,
 			continue;
 		}
 
-		show_node(iter, level, op, opts);
+		show_node(iter, level, op, opts, parent_is_oneliner);
 	}
 
 	if (list) {
-		show_sorted_list(list, level, op, opts);
+		show_sorted_list(list, level, op, opts, parent_is_oneliner);
 		faux_list_free(list);
 	}
 }
@@ -364,7 +384,7 @@ bool_t show_xpath(sr_session_ctx_t *sess, const char *xpath, pline_opts_t *opts)
 		nodes_list = data->tree;
 	}
 
-	show_subtree(nodes_list, 0, DIFF_OP_NONE, opts);
+	show_subtree(nodes_list, 0, DIFF_OP_NONE, opts, BOOL_FALSE);
 	sr_release_data(data);
 
 	return BOOL_TRUE;
