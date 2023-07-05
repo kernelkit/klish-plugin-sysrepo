@@ -15,6 +15,7 @@
 	ShowDefaultKeys = n
 	HidePasswords = y
 	EnableNACM = n
+	Oneliners = y
 </PLUGIN>
 
 
