@@ -5,6 +5,7 @@
 #ifndef _pligin_sysrepo_private_h
 #define _plugin_sysrepo_private_h
 
+#include <sysrepo.h>
 #include <faux/faux.h>
 #include <faux/argv.h>
 #include <klish/kcontext_base.h>
@@ -16,6 +17,9 @@
 typedef struct {
 	faux_argv_t *path; // Current data hierarchy path ('edit' operation)
 	pline_opts_t opts; // Settings
+	sr_conn_ctx_t *sr_conn; // Sysrepo connection
+	sr_session_ctx_t *sr_sess; // Sysrepo session
+	sr_subscription_ctx_t *nacm_sub;
 } srp_udata_t;
 
 
@@ -60,6 +64,7 @@ int srp_deactivate(kcontext_t *context);
 pline_opts_t *srp_udata_opts(kcontext_t *context);
 faux_argv_t *srp_udata_path(kcontext_t *context);
 void srp_udata_set_path(kcontext_t *context, faux_argv_t *path);
+sr_session_ctx_t *srp_udata_sr_sess(kcontext_t *context);
 
 // Private
 enum diff_op {

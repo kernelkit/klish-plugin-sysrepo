@@ -5,6 +5,9 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <assert.h>
+#include <syslog.h>
+#include <sysrepo.h>
+#include <sysrepo/netconf_acm.h>
 
 #include <faux/faux.h>
 #include <faux/str.h>
@@ -21,6 +24,9 @@ const uint8_t kplugin_sysrepo_minor = KPLUGIN_MINOR;
 
 static int parse_plugin_conf(const char *conf, pline_opts_t *opts);
 
+static int kplugin_sysrepo_init_session(kcontext_t *context);
+static int kplugin_sysrepo_fini_session(kcontext_t *context);
+
 
 int kplugin_sysrepo_init(kcontext_t *context)
 {
@@ -33,37 +39,43 @@ int kplugin_sysrepo_init(kcontext_t *context)
 
 	// Symbols
 
+	// Session init/fini
+	kplugin_set_init_session_fn(plugin, kplugin_sysrepo_init_session);
+	kplugin_set_fini_session_fn(plugin, kplugin_sysrepo_fini_session);
+
 	// Types
 	kplugin_add_syms(plugin, ksym_new_ext("PLINE_SET", srp_PLINE_SET,
-		KSYM_USERDEFINED_PERMANENT, KSYM_UNSYNC));
+		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
 	kplugin_add_syms(plugin, ksym_new_ext("PLINE_DEL", srp_PLINE_DEL,
-		KSYM_USERDEFINED_PERMANENT, KSYM_UNSYNC));
+		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
 	kplugin_add_syms(plugin, ksym_new_ext("PLINE_EDIT", srp_PLINE_EDIT,
-		KSYM_USERDEFINED_PERMANENT, KSYM_UNSYNC));
+		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
 	kplugin_add_syms(plugin, ksym_new_ext("PLINE_INSERT_FROM", srp_PLINE_INSERT_FROM,
-		KSYM_USERDEFINED_PERMANENT, KSYM_UNSYNC));
+		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
 	kplugin_add_syms(plugin, ksym_new_ext("PLINE_INSERT_TO", srp_PLINE_INSERT_TO,
-		KSYM_USERDEFINED_PERMANENT, KSYM_UNSYNC));
+		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
 
 	// Completion/Help/Prompt
 	kplugin_add_syms(plugin, ksym_new_ext("srp_compl", srp_compl,
-		KSYM_USERDEFINED_PERMANENT, KSYM_UNSYNC));
+		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
 	kplugin_add_syms(plugin, ksym_new_ext("srp_help", srp_help,
-		KSYM_USERDEFINED_PERMANENT, KSYM_UNSYNC));
+		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
 	kplugin_add_syms(plugin, ksym_new_ext("srp_compl_insert_to", srp_compl_insert_to,
-		KSYM_USERDEFINED_PERMANENT, KSYM_UNSYNC));
+		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
 	kplugin_add_syms(plugin, ksym_new_ext("srp_help_insert_to", srp_help_insert_to,
-		KSYM_USERDEFINED_PERMANENT, KSYM_UNSYNC));
+		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
 	kplugin_add_syms(plugin, ksym_new_ext("srp_prompt_edit_path", srp_prompt_edit_path,
-		KSYM_USERDEFINED_PERMANENT, KSYM_UNSYNC));
+		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
 	kplugin_add_syms(plugin, ksym_new_ext("srp_compl_xpath_running", srp_compl_xpath_running,
-		KSYM_USERDEFINED_PERMANENT, KSYM_UNSYNC));
+		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
 	kplugin_add_syms(plugin, ksym_new_ext("srp_compl_xpath_candidate", srp_compl_xpath_candidate,
-		KSYM_USERDEFINED_PERMANENT, KSYM_UNSYNC));
+		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
 
 	// Operations
-	kplugin_add_syms(plugin, ksym_new("srp_set", srp_set));
-	kplugin_add_syms(plugin, ksym_new("srp_del", srp_del));
+	kplugin_add_syms(plugin, ksym_new_ext("srp_set", srp_set,
+		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
+	kplugin_add_syms(plugin, ksym_new_ext("srp_del", srp_del,
+		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
 	// Note: 'edit', 'top', 'up'  must be sync to set current path
 	kplugin_add_syms(plugin, ksym_new_ext("srp_edit", srp_edit,
 		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
@@ -71,19 +83,30 @@ int kplugin_sysrepo_init(kcontext_t *context)
 		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
 	kplugin_add_syms(plugin, ksym_new_ext("srp_up", srp_up,
 		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
-	kplugin_add_syms(plugin, ksym_new("srp_insert", srp_insert));
-	kplugin_add_syms(plugin, ksym_new("srp_verify", srp_verify));
-	kplugin_add_syms(plugin, ksym_new("srp_commit", srp_commit));
-	kplugin_add_syms(plugin, ksym_new("srp_reset", srp_reset));
-	kplugin_add_syms(plugin, ksym_new("srp_show", srp_show));
-	kplugin_add_syms(plugin, ksym_new("srp_show_running", srp_show_running));
-	kplugin_add_syms(plugin, ksym_new("srp_diff", srp_diff));
-	kplugin_add_syms(plugin, ksym_new("srp_deactivate", srp_deactivate));
+	kplugin_add_syms(plugin, ksym_new_ext("srp_insert", srp_insert,
+		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
+	kplugin_add_syms(plugin, ksym_new_ext("srp_verify", srp_verify,
+		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
+	kplugin_add_syms(plugin, ksym_new_ext("srp_commit", srp_commit,
+		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
+	kplugin_add_syms(plugin, ksym_new_ext("srp_reset", srp_reset,
+		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
+	kplugin_add_syms(plugin, ksym_new_ext("srp_show", srp_show,
+		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
+	kplugin_add_syms(plugin, ksym_new_ext("srp_show_running", srp_show_running,
+		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
+	kplugin_add_syms(plugin, ksym_new_ext("srp_diff", srp_diff,
+		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
+	kplugin_add_syms(plugin, ksym_new_ext("srp_deactivate", srp_deactivate,
+		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
 
 	// User-data initialization
 	udata = faux_zmalloc(sizeof(*udata));
 	assert(udata);
 	udata->path = NULL;
+	udata->sr_conn = NULL;
+	udata->sr_sess = NULL;
+	udata->nacm_sub = NULL;
 
 	// Settings
 	udata->opts.begin_bracket = '{';
@@ -164,6 +187,19 @@ void srp_udata_set_path(kcontext_t *context, faux_argv_t *path)
 	if (udata->path)
 		faux_argv_free(udata->path);
 	udata->path = path;
+}
+
+
+sr_session_ctx_t *srp_udata_sr_sess(kcontext_t *context)
+{
+	srp_udata_t *udata = NULL;
+
+	assert(context);
+
+	udata = (srp_udata_t *)kcontext_udata(context);
+	assert(udata);
+
+	return udata->sr_sess;
 }
 
 
@@ -260,6 +296,66 @@ static int parse_plugin_conf(const char *conf, pline_opts_t *opts)
 	}
 
 	faux_ini_free(ini);
+
+	return 0;
+}
+
+
+static int kplugin_sysrepo_init_session(kcontext_t *context)
+{
+	srp_udata_t *udata = NULL;
+	const char *user = NULL;
+
+	assert(context);
+
+	udata = (srp_udata_t *)kcontext_udata(context);
+	assert(udata);
+
+	// Remote user name
+	user = ksession_user(kcontext_session(context));
+
+	// Connect to Sysrepo
+	if (sr_connect(SR_CONN_DEFAULT, &udata->sr_conn))
+		return -1;
+	if (sr_session_start(udata->sr_conn, SRP_REPO_EDIT, &udata->sr_sess)) {
+		sr_disconnect(udata->sr_conn);
+		return -1;
+	}
+	// Init NACM session
+	if (udata->opts.enable_nacm) {
+		if (sr_nacm_init(udata->sr_sess, 0, &udata->nacm_sub) != SR_ERR_OK) {
+			sr_disconnect(udata->sr_conn);
+			return -1;
+		}
+		sr_nacm_set_user(udata->sr_sess, user);
+	}
+
+	syslog(LOG_ERR, "Start session for \"%s\"", user);
+
+	return 0;
+}
+
+
+static int kplugin_sysrepo_fini_session(kcontext_t *context)
+{
+	srp_udata_t *udata = NULL;
+	const char *user = NULL;
+
+	assert(context);
+
+	udata = (srp_udata_t *)kcontext_udata(context);
+	assert(udata);
+
+	// Remote user name
+	user = ksession_user(kcontext_session(context));
+
+	if (udata->opts.enable_nacm) {
+		sr_unsubscribe(udata->nacm_sub);
+		sr_nacm_destroy();
+	}
+	sr_disconnect(udata->sr_conn);
+
+	syslog(LOG_ERR, "Stop session for \"%s\"", user);
 
 	return 0;
 }

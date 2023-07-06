@@ -931,7 +931,6 @@ static int show(kcontext_t *context, sr_datastore_t ds)
 	int ret = -1;
 	faux_argv_t *args = NULL;
 	pline_t *pline = NULL;
-	sr_conn_ctx_t *conn = NULL;
 	sr_session_ctx_t *sess = NULL;
 	pexpr_t *expr = NULL;
 	faux_argv_t *cur_path = NULL;
@@ -939,16 +938,8 @@ static int show(kcontext_t *context, sr_datastore_t ds)
 
 	assert(context);
 
-	if (sr_connect(SR_CONN_DEFAULT, &conn)) {
-		fprintf(stderr, ERRORMSG "Can't connect to data store\n");
-		return -1;
-	}
-	if (sr_session_start(conn, ds, &sess)) {
-		fprintf(stderr, ERRORMSG "Can't start data store session\n");
-		sr_disconnect(conn);
-		return -1;
-	}
-
+	sess = srp_udata_sr_sess(context);
+	sr_session_switch_ds(sess, ds);
 	cur_path = (faux_argv_t *)srp_udata_path(context);
 
 	if (kpargv_find(kcontext_pargv(context), "path") || cur_path) {
@@ -986,7 +977,6 @@ static int show(kcontext_t *context, sr_datastore_t ds)
 	ret = 0;
 err:
 	pline_free(pline);
-	sr_disconnect(conn);
 
 	return ret;
 }
