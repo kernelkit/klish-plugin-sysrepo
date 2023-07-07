@@ -377,10 +377,14 @@ bool_t show_xpath(sr_session_ctx_t *sess, const char *xpath, pline_opts_t *opts)
 	if (xpath) {
 		if (sr_get_subtree(sess, xpath, 0, &data) != SR_ERR_OK)
 			return BOOL_FALSE;
+		if (!data) // Not found
+			return BOOL_TRUE;
 		nodes_list = lyd_child(data->tree);
 	} else {
 		if (sr_get_data(sess, "/*", 0, 0, 0, &data) != SR_ERR_OK)
 			return BOOL_FALSE;
+		if (!data) // Not found
+			return BOOL_TRUE;
 		nodes_list = data->tree;
 	}
 

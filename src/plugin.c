@@ -315,15 +315,18 @@ static int kplugin_sysrepo_init_session(kcontext_t *context)
 	user = ksession_user(kcontext_session(context));
 
 	// Connect to Sysrepo
-	if (sr_connect(SR_CONN_DEFAULT, &udata->sr_conn))
+	if (sr_connect(SR_CONN_DEFAULT, &(udata->sr_conn))) {
+		syslog(LOG_ERR, "Can't connect to Sysrepo");
 		return -1;
-	if (sr_session_start(udata->sr_conn, SRP_REPO_EDIT, &udata->sr_sess)) {
+	}
+	if (sr_session_start(udata->sr_conn, SRP_REPO_EDIT, &(udata->sr_sess))) {
+		syslog(LOG_ERR, "Can't connect create Sysrepo session");
 		sr_disconnect(udata->sr_conn);
 		return -1;
 	}
 	// Init NACM session
 	if (udata->opts.enable_nacm) {
-		if (sr_nacm_init(udata->sr_sess, 0, &udata->nacm_sub) != SR_ERR_OK) {
+		if (sr_nacm_init(udata->sr_sess, 0, &(udata->nacm_sub)) != SR_ERR_OK) {
 			sr_disconnect(udata->sr_conn);
 			return -1;
 		}
