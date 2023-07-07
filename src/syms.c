@@ -868,7 +868,9 @@ int srp_show_running(kcontext_t *context)
 	assert(context);
 
 	sess = srp_udata_sr_sess(context);
+	sr_session_switch_ds(sess, SR_DS_RUNNING);
 	show_xpath(sess, NULL, srp_udata_opts(context));
+	sr_session_switch_ds(sess, SRP_REPO_EDIT);
 
 	return 0;
 }
