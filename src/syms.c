@@ -387,6 +387,43 @@ int srp_help_insert_to(kcontext_t *context)
 	return srp_compl_or_help_insert_to(context, BOOL_TRUE);
 }
 
+/* Extracts YANG model description text for a 'help foo' command */
+int srp_help_text(kcontext_t *context)
+{
+	sr_session_ctx_t *sess = NULL;
+	sr_conn_ctx_t *conn = NULL;
+	faux_argv_t *args = NULL;
+	faux_argv_t *cur_path;
+	pline_t *pline;
+	int ret = 0;
+
+	assert(context);
+
+	if (sr_connect(SR_CONN_DEFAULT, &conn))
+		return -1;
+	if (sr_session_start(conn, SRP_REPO_EDIT, &sess)) {
+		sr_disconnect(conn);
+		return -1;
+	}
+
+	cur_path = (faux_argv_t *)srp_udata_path(context);
+	args = param2argv(cur_path, kcontext_pargv(context), "path");
+	pline = pline_parse(sess, args, srp_udata_opts(context));
+	faux_argv_free(args);
+
+	if (pline->invalid) {
+		fprintf(stderr, ERRORMSG "Invalid help request\n");
+		ret = -1;
+		goto cleanup;
+	}
+
+	pline_print_help(pline);
+cleanup:
+	pline_free(pline);
+	sr_disconnect(conn);
+
+	return ret;
+}
 
 int srp_set(kcontext_t *context)
 {

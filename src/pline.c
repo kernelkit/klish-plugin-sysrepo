@@ -1151,7 +1151,7 @@ static void str_range(const struct lysc_type *type)
 
 
 static void pline_print_type_help(const struct lysc_node *node,
-	const struct lysc_type *type)
+	const struct lysc_type *type, int full)
 {
 	const char *units = NULL;
 
@@ -1225,14 +1225,14 @@ static void pline_print_type_help(const struct lysc_node *node,
 			ref_node = lys_find_path(NULL, node, path, 0);
 			faux_str_free(path);
 			if (!ref_node) {
-				pline_print_type_help(node, t->realtype);
+				pline_print_type_help(node, t->realtype, full);
 				return; // Because it prints whole info itself
 			}
 			if (ref_node->nodetype & LYS_LEAF)
 				ref_type = ((struct lysc_node_leaf *)ref_node)->type;
 			else
 				ref_type = ((struct lysc_node_leaflist *)ref_node)->type;
-			pline_print_type_help(ref_node, ref_type);
+			pline_print_type_help(ref_node, ref_type, full);
 			return; // Because it prints whole info itself
 		}
 
@@ -1240,8 +1240,14 @@ static void pline_print_type_help(const struct lysc_node *node,
 			const struct lysc_type_union *t =
 				(const struct lysc_type_union *)type;
 			LY_ARRAY_COUNT_TYPE u = 0;
+
+			if (full) {
+				printf("<union>\n");
+				break;
+			}
+
 			LY_ARRAY_FOR(t->types, u)
-				pline_print_type_help(node, t->types[u]);
+				pline_print_type_help(node, t->types[u], full);
 			return; // Because it prints whole info itself
 		}
 
@@ -1249,6 +1255,12 @@ static void pline_print_type_help(const struct lysc_node *node,
 			const struct lysc_type_enum *t =
 				(const struct lysc_type_enum *)type;
 			LY_ARRAY_COUNT_TYPE u = 0;
+
+			if (full) {
+				printf("<enum>\n");
+				break;
+			}
+
 			LY_ARRAY_FOR(t->enums, u)
 				if (t->enums[u].dsc) {
 					char *dsc = faux_str_getline(
@@ -1268,6 +1280,12 @@ static void pline_print_type_help(const struct lysc_node *node,
 			struct lysc_type_identityref *t =
 				(struct lysc_type_identityref *)type;
 			LY_ARRAY_COUNT_TYPE u = 0;
+
+			if (full) {
+				printf("<identity>\n");
+				break;
+			}
+
 			LY_ARRAY_FOR(t->bases, u)
 				identityref_help(t->bases[u]);
 			return; // Because it prints whole info itself
@@ -1280,9 +1298,23 @@ static void pline_print_type_help(const struct lysc_node *node,
 	}
 
 	if (node->dsc) {
-		char *dsc = faux_str_getline(node->dsc, NULL);
-		printf("%s\n", dsc);
-		faux_str_free(dsc);
+		const char *dsc = node->dsc;
+		char *str;
+
+		if (full) {
+			/* Print full description for a leaf node */
+			printf("\n\e[1mDESCRIPTION\e[0m\n");
+
+			while ((str = faux_str_getline(dsc, &dsc))) {
+				printf("\t%s\n", str);
+				faux_str_free(str);
+			}
+			puts("");
+		} else {
+			str = faux_str_getline(dsc, NULL);
+			printf("%s\n", str);
+			faux_str_free(str);
+		}
 	} else {
 		printf("%s\n", node->name);
 	}
@@ -1353,7 +1385,7 @@ void pline_print_completions(const pline_t *pline, bool_t help, pt_e enabled_typ
 		else
 			continue;
 		if (help)
-			pline_print_type_help(node, type);
+			pline_print_type_help(node, type, 0);
 		else
 			pline_print_type_completions(type);
 	}
@@ -1361,4 +1393,47 @@ void pline_print_completions(const pline_t *pline, bool_t help, pt_e enabled_typ
 	// Restore default DS
 	if (current_ds != SRP_REPO_EDIT)
 		sr_session_switch_ds(pline->sess, SRP_REPO_EDIT);
+}
+
+void pline_print_help(const pline_t *pline)
+{
+	const struct lysc_node *node;
+	faux_list_node_t *iter;
+	pcompl_t *pcompl;
+	char *str;
+
+	iter = faux_list_head(pline->compls);
+	pcompl = faux_list_data(iter);
+	if (!pcompl || !pcompl->node)
+		return;
+
+	node = pcompl->node;
+	if (PCOMPL_TYPE == pcompl->type) {
+		struct lysc_type *type;
+
+		if (node->nodetype & LYS_LEAF)
+			type = ((struct lysc_node_leaf *)node)->type;
+		else if (node->nodetype & LYS_LEAFLIST)
+			type = ((struct lysc_node_leaflist *)node)->type;
+		else
+			return;
+
+		printf("\e[1mNAME\e[0m\n\t%s ", node->name);
+		pline_print_type_help(node, type, 1);
+	} else {
+		while ((pcompl = (pcompl_t *)faux_list_each(&iter))) {
+			const char *desc;
+
+			node = pcompl->node;
+			if (!node)
+				continue;
+
+			desc = node->dsc;
+			printf("  %-32s  ", node->name);
+			if ((str = faux_str_getline(desc, NULL))) {
+				printf("%s\n", str);
+				faux_str_free(str);
+			}
+		}
+	}
 }
