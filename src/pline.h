@@ -141,6 +141,7 @@ void pline_free(pline_t *pline);
 
 void pline_debug(pline_t *pline);
 void pline_print_completions(const pline_t *pline, bool_t help);
+void pline_print_help(const pline_t *pline);
 
 size_t num_of_keys(const struct lysc_node *node);
 

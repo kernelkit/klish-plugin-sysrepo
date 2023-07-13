@@ -41,6 +41,7 @@ int srp_compl(kcontext_t *context);
 int srp_help(kcontext_t *context);
 int srp_compl_insert_to(kcontext_t *context);
 int srp_help_insert_to(kcontext_t *context);
+int srp_help_text(kcontext_t *context);
 int srp_prompt_edit_path(kcontext_t *context);
 int srp_compl_xpath_running(kcontext_t *context);
 int srp_compl_xpath_candidate(kcontext_t *context);
