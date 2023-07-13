@@ -61,27 +61,28 @@ static void show_container(const struct lyd_node *node, size_t level,
 {
 	char begin_bracket[3] = {' ', opts->begin_bracket, '\0'};
 	size_t child_num = 0;
+	bool_t show_brackets = BOOL_FALSE;
+	bool_t node_is_oneliner = BOOL_FALSE;
 
 	if (!node)
 		return;
 
-	if (opts->oneliners)
-		child_num = klyd_child_num(node);
-	else
-		child_num = 2; // Bogus value to be non-oneliner
+	child_num = klyd_visible_child_num(node);
+	node_is_oneliner = opts->oneliners && (child_num == 1);
+	show_brackets = opts->show_brackets && !node_is_oneliner && (child_num != 0);
 
 	printf("%s%*s%s%s%s%s",
 		diff_prefix(op, opts),
 		parent_is_oneliner ? 1 : (int)(level * opts->indent), "",
 		node->schema->name,
-		(opts->show_brackets && (child_num > 1)) ? begin_bracket : "",
+		show_brackets ? begin_bracket : "",
 		diff_suffix(op, opts),
-		(child_num != 1) ? "\n" : "");
+		node_is_oneliner ? "" : "\n");
 	if (child_num != 0)
 		show_subtree(lyd_child(node),
-			(child_num <= 1) ? level : (level + 1),
-			op, opts, (child_num <= 1));
-	if (opts->show_brackets && (child_num > 1)) {
+			node_is_oneliner ? level : (level + 1),
+			op, opts, node_is_oneliner);
+	if (show_brackets) {
 		printf("%s%*s%c%s\n",
 			diff_prefix(op, opts),
 			(int)(level * opts->indent), "",
@@ -99,14 +100,15 @@ static void show_list(const struct lyd_node *node, size_t level,
 	bool_t first_key = BOOL_TRUE;
 	const char *default_value = NULL;
 	size_t child_num = 0;
+	bool_t show_brackets = BOOL_FALSE;
+	bool_t node_is_oneliner = BOOL_FALSE;
 
 	if (!node)
 		return;
 
-	if (opts->oneliners)
-		child_num = klyd_child_num(node);
-	else
-		child_num = 2; // Bogus value to be non-oneliner
+	child_num = klyd_visible_child_num(node);
+	node_is_oneliner = opts->oneliners && (child_num == 1);
+	show_brackets = opts->show_brackets && !node_is_oneliner && (child_num != 0);
 
 	printf("%s%*s%s",
 		diff_prefix(op, opts),
@@ -139,14 +141,14 @@ static void show_list(const struct lyd_node *node, size_t level,
 		first_key = BOOL_FALSE;
 	}
 	printf("%s%s%s",
-		(opts->show_brackets && (child_num > 1)) ? begin_bracket : "",
+		show_brackets ? begin_bracket : "",
 		diff_suffix(op, opts),
-		(child_num != 1) ? "\n" : "");
+		node_is_oneliner ? "" : "\n");
 	if (child_num != 0)
 		show_subtree(lyd_child(node),
-			(child_num <= 1) ? level : (level + 1),
-			op, opts, (child_num <= 1));
-	if (opts->show_brackets && (child_num > 1)) {
+			node_is_oneliner ? level : (level + 1),
+			op, opts, node_is_oneliner);
+	if (show_brackets) {
 		printf("%s%*s%c%s\n",
 			diff_prefix(op, opts),
 			(int)(level * opts->indent), "",

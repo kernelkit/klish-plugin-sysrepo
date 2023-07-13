@@ -99,7 +99,7 @@ char *klysc_leafref_xpath(const struct lysc_node *node,
 	const struct lysc_type *type, const char *node_path);
 const char *klysc_identityref_prefix(struct lysc_type_identityref *type,
 	const char *name);
-size_t klyd_child_num(const struct lyd_node *node);
+size_t klyd_visible_child_num(const struct lyd_node *node);
 
 C_DECL_END
 

@@ -966,6 +966,7 @@ int srp_diff(kcontext_t *context)
 	faux_argv_t *cur_path = NULL;
 	const char *xpath = NULL;
 	struct lyd_node *diff = NULL;
+	pline_opts_t masked_opts = {};
 
 	assert(context);
 	sess = srp_udata_sr_sess(context);
@@ -1027,7 +1028,11 @@ int srp_diff(kcontext_t *context)
 		goto err;
 	}
 
-	show_subtree(diff, 0, DIFF_OP_NONE, srp_udata_opts(context), BOOL_FALSE);
+	// Hack to don't show oneliners within diff. Mask oneliners flag
+	masked_opts = *srp_udata_opts(context);
+	masked_opts.oneliners = BOOL_FALSE;
+
+	show_subtree(diff, 0, DIFF_OP_NONE, &masked_opts, BOOL_FALSE);
 	lyd_free_siblings(diff);
 
 	ret = 0;
