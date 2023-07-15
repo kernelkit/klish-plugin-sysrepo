@@ -90,6 +90,8 @@ int kplugin_sysrepo_init(kcontext_t *context)
 		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
 	kplugin_add_syms(plugin, ksym_new_ext("srp_compl_xpath", srp_compl_xpath,
 		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
+	kplugin_add_syms(plugin, ksym_new_ext("srp_prompt", srp_prompt,
+		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
 
 	// Operations
 	kplugin_add_syms(plugin, ksym_new_ext("srp_help_text", srp_help_text,

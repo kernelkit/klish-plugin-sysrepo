@@ -3,18 +3,22 @@
 #include <string.h>
 #include <assert.h>
 #include <syslog.h>
+#include <sys/utsname.h>
 
 #include <faux/faux.h>
 #include <faux/str.h>
 #include <faux/argv.h>
 #include <faux/list.h>
 #include <faux/error.h>
+#include <faux/sysdb.h>
+
 #include <klish/khelper.h>
 #include <klish/kplugin.h>
 #include <klish/kentry.h>
 #include <klish/kscheme.h>
 #include <klish/kcontext.h>
 #include <klish/kpargv.h>
+#include <klish/kpath.h>
 
 #include <sysrepo.h>
 #include <sysrepo/xpath.h>
@@ -206,6 +210,91 @@ int srp_prompt_edit_path(kcontext_t *context)
 		path = faux_argv_line(cur_path);
 	printf("[edit%s%s]\n", path ? " " : "", path ? path : "");
 	faux_str_free(path);
+
+	return 0;
+}
+
+
+/*
+ * sysrepo version of klish_prompt() default.
+ */
+int srp_prompt(kcontext_t *context)
+{
+	bool_t is_macro = BOOL_FALSE;
+	kpath_levels_node_t *iter;
+	faux_argv_t *cur_path;
+	ksession_t *session;
+	char *prompt = NULL;
+	struct utsname uts;
+	const char *script;
+	const char *start;
+	const char *user;
+	const char *pos;
+	klevel_t *level;
+
+	script = kcontext_script(context);
+	if (faux_str_is_empty(script))
+		return 0;
+	pos = script;
+	start = script;
+
+	while (*pos != '\0') {
+		if (is_macro) {
+			switch (*pos) {
+			case '%':
+				faux_str_cat(&prompt, "%");
+				break;
+			case 'h':
+				if (uname(&uts) == 0)
+					faux_str_cat(&prompt, uts.nodename);
+				break;
+			case 'u':
+				user = ksession_user(kcontext_session(context));
+				if (user)
+					faux_str_cat(&prompt, user);
+				break;
+			case 'w':
+				session = kcontext_session(context);
+				if (!session)
+					break;
+
+				iter = kpath_iter(ksession_path(session));
+				while ((level = kpath_each(&iter))) {
+					const char *nm = kentry_name(klevel_entry(level));
+
+					faux_str_cat(&prompt, "/");
+					faux_str_cat(&prompt, nm);
+				}
+				break;
+			case 'x':
+				cur_path = (faux_argv_t *)srp_udata_path(context);
+				if (cur_path) {
+					faux_argv_node_t *iter;
+					const char *arg;
+
+					iter = faux_argv_iter(cur_path);
+					while ((arg = faux_argv_each(&iter))) {
+						faux_str_cat(&prompt, "/");
+						faux_str_cat(&prompt, arg);
+					}
+				}
+				break;
+			}
+			is_macro = BOOL_FALSE;
+			start = pos + 1;
+		} else if (*pos == '%') {
+			is_macro = BOOL_TRUE;
+			if (pos > start)
+				faux_str_catn(&prompt, start, pos - start);
+		}
+		pos++;
+	}
+	if (pos > start)
+		faux_str_catn(&prompt, start, pos - start);
+
+	printf("%s", prompt);
+	faux_str_free(prompt);
+	fflush(stdout);
 
 	return 0;
 }
