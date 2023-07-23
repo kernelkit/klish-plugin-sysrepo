@@ -77,9 +77,9 @@ int kplugin_sysrepo_init(kcontext_t *context)
 	kplugin_add_syms(plugin, ksym_new_ext("srp_help_text", srp_help_text,
 		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
 	kplugin_add_syms(plugin, ksym_new_ext("srp_set", srp_set,
-		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
+		KSYM_USERDEFINED_PERMANENT, KSYM_UNSYNC));
 	kplugin_add_syms(plugin, ksym_new_ext("srp_del", srp_del,
-		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
+		KSYM_USERDEFINED_PERMANENT, KSYM_UNSYNC));
 	// Note: 'edit', 'top', 'up'  must be sync to set current path
 	kplugin_add_syms(plugin, ksym_new_ext("srp_edit", srp_edit,
 		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
@@ -90,19 +90,19 @@ int kplugin_sysrepo_init(kcontext_t *context)
 	kplugin_add_syms(plugin, ksym_new_ext("srp_insert", srp_insert,
 		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
 	kplugin_add_syms(plugin, ksym_new_ext("srp_verify", srp_verify,
-		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
+		KSYM_USERDEFINED_PERMANENT, KSYM_UNSYNC));
 	kplugin_add_syms(plugin, ksym_new_ext("srp_commit", srp_commit,
-		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
+		KSYM_USERDEFINED_PERMANENT, KSYM_UNSYNC));
 	kplugin_add_syms(plugin, ksym_new_ext("srp_reset", srp_reset,
-		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
+		KSYM_USERDEFINED_PERMANENT, KSYM_UNSYNC));
 	kplugin_add_syms(plugin, ksym_new_ext("srp_show", srp_show,
-		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
+		KSYM_USERDEFINED_PERMANENT, KSYM_UNSYNC));
 	kplugin_add_syms(plugin, ksym_new_ext("srp_show_running", srp_show_running,
-		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
+		KSYM_USERDEFINED_PERMANENT, KSYM_UNSYNC));
 	kplugin_add_syms(plugin, ksym_new_ext("srp_diff", srp_diff,
-		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
+		KSYM_USERDEFINED_PERMANENT, KSYM_UNSYNC));
 	kplugin_add_syms(plugin, ksym_new_ext("srp_deactivate", srp_deactivate,
-		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
+		KSYM_USERDEFINED_PERMANENT, KSYM_UNSYNC));
 
 	// User-data initialization
 	udata = faux_zmalloc(sizeof(*udata));
