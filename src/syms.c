@@ -682,6 +682,14 @@ int srp_commit(kcontext_t *context)
 	assert(context);
 	sess = srp_udata_sr_sess(context);
 
+	// Validate candidate config. The copy operation is not enough to fully
+	// verify candidate config. It verifies only the part of it. So verify
+	// before commit
+	if (sr_validate(sess, NULL, 0) != SR_ERR_OK) {
+		srp_error(sess, ERRORMSG "Invalid candidate configuration\n");
+		goto err;
+	}
+
 	// Copy candidate to running-config
 	if (sr_session_switch_ds(sess, SR_DS_RUNNING)) {
 		srp_error(sess, ERRORMSG "Can't connect to running-config data store\n");
