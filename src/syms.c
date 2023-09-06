@@ -367,6 +367,7 @@ int srp_set(kcontext_t *context)
 	}
 
 	if (sr_apply_changes(sess, 0) != SR_ERR_OK) {
+		sr_discard_changes(sess);
 		srp_error(sess, ERRORMSG "Can't apply changes\n");
 		goto cleanup;
 	}
@@ -418,6 +419,7 @@ int srp_del(kcontext_t *context)
 	}
 
 	if (sr_apply_changes(sess, 0) != SR_ERR_OK) {
+		sr_discard_changes(sess);
 		srp_error(sess, ERRORMSG "Can't apply changes\n");
 		goto err;
 	}
@@ -469,6 +471,7 @@ int srp_edit(kcontext_t *context)
 	}
 
 	if (sr_apply_changes(sess, 0) != SR_ERR_OK) {
+		sr_discard_changes(sess);
 		srp_error(sess, ERRORMSG "Can't apply changes\n");
 		goto err;
 	}
@@ -640,6 +643,7 @@ int srp_insert(kcontext_t *context)
 	}
 
 	if (sr_apply_changes(sess, 0) != SR_ERR_OK) {
+		sr_discard_changes(sess);
 		srp_error(sess, ERRORMSG "Can't apply changes\n");
 		goto err;
 	}
@@ -930,8 +934,10 @@ int srp_deactivate(kcontext_t *context)
 	if (sr_has_changes(sess))
 		fprintf(stderr, ERRORMSG "Has changes\n");
 
-	if (sr_apply_changes(sess, 0) != SR_ERR_OK)
+	if (sr_apply_changes(sess, 0) != SR_ERR_OK) {
+		sr_discard_changes(sess);
 		srp_error(sess, ERRORMSG "Can't apply changes\n");
+	}
 	sr_release_data(data);
 
 	if (sr_get_subtree(sess, expr->xpath, 0, &data) != SR_ERR_OK) {
