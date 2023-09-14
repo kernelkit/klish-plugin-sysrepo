@@ -324,6 +324,7 @@ static int kplugin_sysrepo_init_session(kcontext_t *context)
 		sr_disconnect(udata->sr_conn);
 		return -1;
 	}
+	sr_session_set_orig_name(udata->sr_sess, user);
 	// Init NACM session
 	if (udata->opts.enable_nacm) {
 		if (sr_nacm_init(udata->sr_sess, 0, &(udata->nacm_sub)) != SR_ERR_OK) {
