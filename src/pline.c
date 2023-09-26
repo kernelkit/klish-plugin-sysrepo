@@ -875,8 +875,13 @@ static void identityref_help(struct lysc_ident *ident)
 		return;
 
 	if (!ident->derived) {
-		printf("%s\n%s\n", ident->name,
-			ident->dsc ? ident->dsc : ident->name);
+		if (ident->dsc) {
+			char *dsc = faux_str_getline(ident->dsc, NULL);
+			printf("%s\n%s\n", ident->name, dsc);
+			faux_str_free(dsc);
+		} else {
+			printf("%s\n%s\n", ident->name, ident->name);
+		}
 		return;
 	}
 
@@ -1181,9 +1186,17 @@ static void pline_print_type_help(const struct lysc_node *node,
 				(const struct lysc_type_enum *)type;
 			LY_ARRAY_COUNT_TYPE u = 0;
 			LY_ARRAY_FOR(t->enums, u)
-				printf("%s\n%s\n",
-					t->enums[u].name,
-					t->enums[u].dsc ? t->enums[u].dsc : t->enums[u].name);
+				if (t->enums[u].dsc) {
+					char *dsc = faux_str_getline(
+						t->enums[u].dsc, NULL);
+					printf("%s\n%s\n",
+						t->enums[u].name, dsc);
+					faux_str_free(dsc);
+				} else {
+					printf("%s\n%s\n",
+						t->enums[u].name,
+						t->enums[u].name);
+				}
 			return; // Because it prints whole info itself
 		}
 
@@ -1202,7 +1215,13 @@ static void pline_print_type_help(const struct lysc_node *node,
 		}
 	}
 
-	printf("%s\n", node->dsc ? node->dsc : node->name);
+	if (node->dsc) {
+		char *dsc = faux_str_getline(node->dsc, NULL);
+		printf("%s\n", dsc);
+		faux_str_free(dsc);
+	} else {
+		printf("%s\n", node->name);
+	}
 }
 
 
