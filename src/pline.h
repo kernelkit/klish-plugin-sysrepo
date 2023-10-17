@@ -144,6 +144,7 @@ typedef struct {
 	pcompl_type_e type;
 	const struct lysc_node *node;
 	char *xpath;
+	sr_datastore_t xpath_ds;
 	pat_e pat;
 } pcompl_t;
 

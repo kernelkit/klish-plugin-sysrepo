@@ -137,6 +137,7 @@ static pcompl_t *pcompl_new(void)
 	pcompl->type = PCOMPL_NODE;
 	pcompl->node = NULL;
 	pcompl->xpath = NULL;
+	pcompl->xpath_ds = SRP_REPO_EDIT;
 	pcompl->pat = PAT_NONE;
 
 	return pcompl;
@@ -1262,6 +1263,7 @@ void pline_print_completions(const pline_t *pline, bool_t help, pt_e enabled_typ
 {
 	faux_list_node_t *iter = NULL;
 	pcompl_t *pcompl = NULL;
+	sr_datastore_t current_ds = SRP_REPO_EDIT;
 
 	iter = faux_list_head(pline->compls);
 	while ((pcompl = (pcompl_t *)faux_list_each(&iter))) {
@@ -1277,6 +1279,11 @@ void pline_print_completions(const pline_t *pline, bool_t help, pt_e enabled_typ
 			size_t i = 0;
 
 //printf("%s\n", pcompl->xpath);
+			// Switch to necessary DS
+			if (current_ds != pcompl->xpath_ds) {
+				sr_session_switch_ds(pline->sess, pcompl->xpath_ds);
+				current_ds = pcompl->xpath_ds;
+			}
 			sr_get_items(pline->sess, pcompl->xpath,
 				0, 0, &vals, &val_num);
 			for (i = 0; i < val_num; i++) {
@@ -1320,4 +1327,8 @@ void pline_print_completions(const pline_t *pline, bool_t help, pt_e enabled_typ
 		else
 			pline_print_type_completions(type);
 	}
+
+	// Restore default DS
+	if (current_ds != SRP_REPO_EDIT)
+		sr_session_switch_ds(pline->sess, SRP_REPO_EDIT);
 }
