@@ -137,6 +137,7 @@ static pcompl_t *pcompl_new(void)
 	pcompl->type = PCOMPL_NODE;
 	pcompl->node = NULL;
 	pcompl->xpath = NULL;
+	pcompl->pat = PAT_NONE;
 
 	return pcompl;
 }
@@ -184,6 +185,7 @@ void pline_free(pline_t *pline)
 
 	faux_free(pline);
 }
+
 
 static pexpr_t *pline_add_expr(pline_t *pline, const char *xpath,
 	size_t args_num, size_t list_pos)
@@ -279,34 +281,34 @@ void pline_debug(pline_t *pline)
 		printf("pexpr.value = %s\n", pexpr->value ? pexpr->value : "NULL");
 		printf("pexpr.active = %s\n", pexpr->active ? "true" : "false");
 		switch (pexpr->pat) {
-		case 0x0001:
+		case PAT_NONE:
 			pat = "NONE";
 			break;
-		case 0x0002:
+		case PAT_CONTAINER:
 			pat = "CONTAINER";
 			break;
-		case 0x0004:
+		case PAT_LIST:
 			pat = "LIST";
 			break;
-		case 0x0008:
+		case PAT_LIST_KEY:
 			pat = "LIST_KEY";
 			break;
-		case 0x0010:
+		case PAT_LIST_KEY_INCOMPLETED:
 			pat = "LIST_KEY_INCOMPLETED";
 			break;
-		case 0x0020:
+		case PAT_LEAF:
 			pat = "LEAF";
 			break;
-		case 0x0040:
+		case PAT_LEAF_VALUE:
 			pat = "LEAF_VALUE";
 			break;
-		case 0x0080:
+		case PAT_LEAF_EMPTY:
 			pat = "LEAF_EMPTY";
 			break;
-		case 0x0100:
+		case PAT_LEAFLIST:
 			pat = "LEAFLIST";
 			break;
-		case 0x0200:
+		case PAT_LEAFLIST_VALUE:
 			pat = "LEAFLIST_VALUE";
 			break;
 		default:

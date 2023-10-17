@@ -15,7 +15,7 @@
 // Type of positional pline argument
 // P(line) A(rg) T(ype)
 typedef enum {
-	PAT_NONE			= 0x0001,
+	PAT_NONE			= 0x0000,
 	PAT_CONTAINER			= 0x0002,
 	PAT_LIST			= 0x0004,
 	PAT_LIST_KEY			= 0x0008,
@@ -98,6 +98,7 @@ typedef struct {
 	pcompl_type_e type;
 	const struct lysc_node *node;
 	char *xpath;
+	pat_e pat;
 } pcompl_t;
 
 
