@@ -16,21 +16,32 @@
 // P(line) A(rg) T(ype)
 typedef enum {
 	PAT_NONE			= 0x0000,
-	PAT_CONTAINER			= 0x0002,
-	PAT_LIST			= 0x0004,
-	PAT_LIST_KEY			= 0x0008,
-	PAT_LIST_KEY_INCOMPLETED	= 0x0010,
-	PAT_LEAF			= 0x0020,
-	PAT_LEAF_VALUE			= 0x0040,
-	PAT_LEAF_EMPTY			= 0x0080,
-	PAT_LEAFLIST			= 0x0100,
-	PAT_LEAFLIST_VALUE		= 0x0200,
+	PAT_CONTAINER			= 0x0001,
+	PAT_LIST			= 0x0002,
+	PAT_LIST_KEY			= 0x0004,
+	PAT_LIST_KEY_INCOMPLETED	= 0x0008,
+	PAT_LEAF			= 0x0010,
+	PAT_LEAF_VALUE			= 0x0020,
+	PAT_LEAF_EMPTY			= 0x0040,
+	PAT_LEAFLIST			= 0x0080,
+	PAT_LEAFLIST_VALUE		= 0x0100,
 } pat_e;
 
 
 // Type of pline expression
 // P(line) T(ype)
 typedef enum {
+
+	PT_COMPL_ALL =
+		PAT_CONTAINER |
+		PAT_LIST |
+		PAT_LIST_KEY |
+		PAT_LIST_KEY_INCOMPLETED |
+		PAT_LEAF |
+		PAT_LEAF_VALUE |
+		PAT_LEAF_EMPTY |
+		PAT_LEAFLIST |
+		PAT_LEAFLIST_VALUE,
 
 	PT_SET =
 		PAT_CONTAINER |
@@ -41,6 +52,17 @@ typedef enum {
 
 	PT_NOT_SET =
 		0,
+
+	PT_COMPL_SET =
+		PAT_CONTAINER |
+		PAT_LIST |
+		PAT_LIST_KEY |
+		PAT_LIST_KEY_INCOMPLETED |
+		PAT_LEAF |
+		PAT_LEAF_VALUE |
+		PAT_LEAF_EMPTY |
+		PAT_LEAFLIST |
+		PAT_LEAFLIST_VALUE,
 
 	PT_DEL =
 		PAT_CONTAINER |
@@ -53,6 +75,16 @@ typedef enum {
 	PT_NOT_DEL =
 		PAT_LEAF_VALUE,
 
+	PT_COMPL_DEL =
+		PAT_CONTAINER |
+		PAT_LIST |
+		PAT_LIST_KEY |
+		PAT_LIST_KEY_INCOMPLETED |
+		PAT_LEAF |
+		PAT_LEAF_EMPTY |
+		PAT_LEAFLIST |
+		PAT_LEAFLIST_VALUE,
+
 	PT_EDIT =
 		PAT_CONTAINER |
 		PAT_LIST_KEY,
@@ -63,6 +95,12 @@ typedef enum {
 		PAT_LEAFLIST |
 		PAT_LEAFLIST_VALUE,
 
+	PT_COMPL_EDIT =
+		PAT_CONTAINER |
+		PAT_LIST |
+		PAT_LIST_KEY |
+		PAT_LIST_KEY_INCOMPLETED,
+
 	PT_INSERT =
 		PAT_LIST_KEY |
 		PAT_LEAFLIST_VALUE,
@@ -70,6 +108,14 @@ typedef enum {
 	PT_NOT_INSERT =
 		PAT_LEAF |
 		PAT_LEAF_VALUE,
+
+	PT_COMPL_INSERT =
+		PAT_CONTAINER |
+		PAT_LIST |
+		PAT_LIST_KEY |
+		PAT_LIST_KEY_INCOMPLETED |
+		PAT_LEAFLIST |
+		PAT_LEAFLIST_VALUE,
 
 } pt_e;
 
@@ -141,7 +187,7 @@ pexpr_t *pline_current_expr(pline_t *pline);
 void pline_free(pline_t *pline);
 
 void pline_debug(pline_t *pline);
-void pline_print_completions(const pline_t *pline, bool_t help);
+void pline_print_completions(const pline_t *pline, bool_t help, pt_e enabled_types);
 
 size_t num_of_keys(const struct lysc_node *node);
 

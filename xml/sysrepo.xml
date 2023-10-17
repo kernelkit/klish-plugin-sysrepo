@@ -21,40 +21,40 @@
 
 <PTYPE name="PLINE_SET">
 	<COMPL>
-		<ACTION sym="srp_compl@sysrepo"/>
+		<ACTION sym="srp_compl_set@sysrepo"/>
 	</COMPL>
 	<HELP>
-		<ACTION sym="srp_help@sysrepo"/>
+		<ACTION sym="srp_help_set@sysrepo"/>
 	</HELP>
 	<ACTION sym="PLINE_SET@sysrepo"/>
 </PTYPE>
 
 <PTYPE name="PLINE_DEL">
 	<COMPL>
-		<ACTION sym="srp_compl@sysrepo"/>
+		<ACTION sym="srp_compl_del@sysrepo"/>
 	</COMPL>
 	<HELP>
-		<ACTION sym="srp_help@sysrepo"/>
+		<ACTION sym="srp_help_del@sysrepo"/>
 	</HELP>
 	<ACTION sym="PLINE_DEL@sysrepo"/>
 </PTYPE>
 
 <PTYPE name="PLINE_EDIT">
 	<COMPL>
-		<ACTION sym="srp_compl@sysrepo"/>
+		<ACTION sym="srp_compl_edit@sysrepo"/>
 	</COMPL>
 	<HELP>
-		<ACTION sym="srp_help@sysrepo"/>
+		<ACTION sym="srp_help_edit@sysrepo"/>
 	</HELP>
 	<ACTION sym="PLINE_EDIT@sysrepo"/>
 </PTYPE>
 
 <PTYPE name="PLINE_INSERT_FROM">
 	<COMPL>
-		<ACTION sym="srp_compl@sysrepo"/>
+		<ACTION sym="srp_compl_insert@sysrepo"/>
 	</COMPL>
 	<HELP>
-		<ACTION sym="srp_help@sysrepo"/>
+		<ACTION sym="srp_help_insert@sysrepo"/>
 	</HELP>
 	<ACTION sym="PLINE_INSERT_FROM@sysrepo"/>
 </PTYPE>

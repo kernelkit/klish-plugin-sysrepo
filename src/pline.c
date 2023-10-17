@@ -217,7 +217,8 @@ pexpr_t *pline_current_expr(pline_t *pline)
 
 
 static void pline_add_compl(pline_t *pline,
-	pcompl_type_e type, const struct lysc_node *node, const char *xpath)
+	pcompl_type_e type, const struct lysc_node *node,
+	const char *xpath, pat_e pat)
 {
 	pcompl_t *pcompl = NULL;
 
@@ -226,6 +227,7 @@ static void pline_add_compl(pline_t *pline,
 	pcompl = pcompl_new();
 	pcompl->type = type;
 	pcompl->node = node;
+	pcompl->pat = pat;
 	if (xpath)
 		pcompl->xpath = faux_str_dup(xpath);
 	faux_list_add(pline->compls, pcompl);
@@ -246,6 +248,8 @@ static void pline_add_compl_subtree(pline_t *pline, const struct lys_module *mod
 		subtree = module->compiled->data;
 
 	LY_LIST_FOR(subtree, iter) {
+		pat_e pat = PAT_NONE;
+
 		if (!(iter->nodetype & SRP_NODETYPE_CONF))
 			continue;
 		if (!(iter->flags & LYS_CONFIG_W))
@@ -256,8 +260,70 @@ static void pline_add_compl_subtree(pline_t *pline, const struct lys_module *mod
 			pline_add_compl_subtree(pline, module, iter);
 			continue;
 		}
-		pline_add_compl(pline, PCOMPL_NODE, iter, NULL);
+		switch(iter->nodetype) {
+		case LYS_CONTAINER:
+			pat = PAT_CONTAINER;
+			break;
+		case LYS_LEAF:
+			pat = PAT_LEAF;
+			break;
+		case LYS_LEAFLIST:
+			pat = PAT_LEAFLIST;
+			break;
+		case LYS_LIST:
+			pat = PAT_LIST;
+			break;
+		default:
+			continue;
+			break;
+		}
+
+		pline_add_compl(pline, PCOMPL_NODE, iter, NULL, pat);
 	}
+}
+
+
+static const char *pat2str(pat_e pat)
+{
+	const char *str = NULL;
+
+	switch (pat) {
+	case PAT_NONE:
+		str = "NONE";
+		break;
+	case PAT_CONTAINER:
+		str = "CONTAINER";
+		break;
+	case PAT_LIST:
+		str = "LIST";
+		break;
+	case PAT_LIST_KEY:
+		str = "LIST_KEY";
+		break;
+	case PAT_LIST_KEY_INCOMPLETED:
+		str = "LIST_KEY_INCOMPLETED";
+		break;
+	case PAT_LEAF:
+		str = "LEAF";
+		break;
+	case PAT_LEAF_VALUE:
+		str = "LEAF_VALUE";
+		break;
+	case PAT_LEAF_EMPTY:
+		str = "LEAF_EMPTY";
+		break;
+	case PAT_LEAFLIST:
+		str = "LEAFLIST";
+		break;
+	case PAT_LEAFLIST_VALUE:
+		str = "LEAFLIST_VALUE";
+		break;
+	default:
+		str = "UNKNOWN";
+		break;
+	}
+
+	return str;
 }
 
 
@@ -267,70 +333,33 @@ void pline_debug(pline_t *pline)
 	pexpr_t *pexpr = NULL;
 	pcompl_t *pcompl = NULL;
 
-	printf("====== Pline:\n\n");
+	syslog(LOG_ERR, "====== Pline:");
+	syslog(LOG_ERR, "invalid = %s", pline->invalid ? "true" : "false");
 
-	printf("invalid = %s\n", pline->invalid ? "true" : "false");
-	printf("\n");
-
-	printf("=== Expressions:\n\n");
+	syslog(LOG_ERR, "=== Expressions:");
 
 	iter = faux_list_head(pline->exprs);
 	while ((pexpr = (pexpr_t *)faux_list_each(&iter))) {
-		char *pat = NULL;
-		printf("pexpr.xpath = %s\n", pexpr->xpath ? pexpr->xpath : "NULL");
-		printf("pexpr.value = %s\n", pexpr->value ? pexpr->value : "NULL");
-		printf("pexpr.active = %s\n", pexpr->active ? "true" : "false");
-		switch (pexpr->pat) {
-		case PAT_NONE:
-			pat = "NONE";
-			break;
-		case PAT_CONTAINER:
-			pat = "CONTAINER";
-			break;
-		case PAT_LIST:
-			pat = "LIST";
-			break;
-		case PAT_LIST_KEY:
-			pat = "LIST_KEY";
-			break;
-		case PAT_LIST_KEY_INCOMPLETED:
-			pat = "LIST_KEY_INCOMPLETED";
-			break;
-		case PAT_LEAF:
-			pat = "LEAF";
-			break;
-		case PAT_LEAF_VALUE:
-			pat = "LEAF_VALUE";
-			break;
-		case PAT_LEAF_EMPTY:
-			pat = "LEAF_EMPTY";
-			break;
-		case PAT_LEAFLIST:
-			pat = "LEAFLIST";
-			break;
-		case PAT_LEAFLIST_VALUE:
-			pat = "LEAFLIST_VALUE";
-			break;
-		default:
-			pat = "UNKNOWN";
-			break;
-		}
-		printf("pexpr.pat = %s\n", pat);
-		printf("pexpr.args_num = %lu\n", pexpr->args_num);
-		printf("pexpr.list_pos = %lu\n", pexpr->list_pos);
-		printf("pexpr.last_keys = %s\n", pexpr->last_keys ? pexpr->last_keys : "NULL");
-		printf("\n");
+		syslog(LOG_ERR, "pexpr.xpath = %s", pexpr->xpath ? pexpr->xpath : "NULL");
+		syslog(LOG_ERR, "pexpr.value = %s", pexpr->value ? pexpr->value : "NULL");
+		syslog(LOG_ERR, "pexpr.active = %s", pexpr->active ? "true" : "false");
+		syslog(LOG_ERR, "pexpr.pat = %s", pat2str(pexpr->pat));
+		syslog(LOG_ERR, "pexpr.args_num = %lu", pexpr->args_num);
+		syslog(LOG_ERR, "pexpr.list_pos = %lu", pexpr->list_pos);
+		syslog(LOG_ERR, "pexpr.last_keys = %s", pexpr->last_keys ? pexpr->last_keys : "NULL");
+		syslog(LOG_ERR, "---");
 	}
 
-	printf("=== Completions:\n\n");
+	syslog(LOG_ERR, "=== Completions:");
 
 	iter = faux_list_head(pline->compls);
 	while ((pcompl = (pcompl_t *)faux_list_each(&iter))) {
-		printf("pcompl.type = %s\n", (pcompl->type == PCOMPL_NODE) ?
+		syslog(LOG_ERR, "pcompl.type = %s", (pcompl->type == PCOMPL_NODE) ?
 			"PCOMPL_NODE" : "PCOMPL_TYPE");
-		printf("pcompl.node = %s\n", pcompl->node ? pcompl->node->name : "NULL");
-		printf("pcompl.xpath = %s\n", pcompl->xpath ? pcompl->xpath : "NULL");
-		printf("\n");
+		syslog(LOG_ERR, "pcompl.node = %s", pcompl->node ? pcompl->node->name : "NULL");
+		syslog(LOG_ERR, "pcompl.xpath = %s", pcompl->xpath ? pcompl->xpath : "NULL");
+		syslog(LOG_ERR, "pcompl.pat = %s", pat2str(pcompl->pat));
+		syslog(LOG_ERR, "---");
 	}
 }
 
@@ -399,7 +428,7 @@ static bool_t pexpr_xpath_add_leaflist_key(pexpr_t *pexpr,
 
 
 static void pline_add_compl_leafref(pline_t *pline, const struct lysc_node *node,
-	const struct lysc_type *type, const char *xpath)
+	const struct lysc_type *type, const char *xpath, pat_e pat)
 {
 	if (!type)
 		return;
@@ -415,14 +444,14 @@ static void pline_add_compl_leafref(pline_t *pline, const struct lysc_node *node
 			(struct lysc_type_union *)type;
 		LY_ARRAY_COUNT_TYPE u = 0;
 		LY_ARRAY_FOR(t->types, u) {
-			pline_add_compl_leafref(pline, node, t->types[u], xpath);
+			pline_add_compl_leafref(pline, node, t->types[u], xpath, pat);
 		}
 		break;
 	}
 
 	case LY_TYPE_LEAFREF: {
 		char *compl_xpath = klysc_leafref_xpath(node, type, xpath);
-		pline_add_compl(pline, PCOMPL_TYPE, NULL, compl_xpath);
+		pline_add_compl(pline, PCOMPL_TYPE, NULL, compl_xpath, pat);
 		faux_str_free(compl_xpath);
 		break;
 	}
@@ -535,10 +564,10 @@ static bool_t pline_parse_module(const struct lys_module *module, faux_argv_t *a
 						if (!str) {
 							char *tmp = faux_str_sprintf("%s/%s",
 								pexpr->xpath, leaf->name);
-							pline_add_compl(pline,
-								PCOMPL_TYPE, iter, tmp);
+							pline_add_compl(pline, PCOMPL_TYPE,
+								iter, tmp, PAT_LIST_KEY);
 							pline_add_compl_leafref(pline, iter,
-								leaf->type, tmp);
+								leaf->type, tmp, PAT_LIST_KEY);
 							faux_str_free(tmp);
 							break_upper_loop = BOOL_TRUE;
 							break;
@@ -614,10 +643,10 @@ static bool_t pline_parse_module(const struct lys_module *module, faux_argv_t *a
 								pexpr->xpath,
 								cur_key->node->name);
 							pline_add_compl(pline, PCOMPL_TYPE,
-								cur_key->node, tmp);
+								cur_key->node, tmp, PAT_LIST_KEY);
 							pline_add_compl_leafref(pline, cur_key->node,
 								((const struct lysc_node_leaf *)cur_key->node)->type,
-								tmp);
+								tmp, PAT_LIST_KEY);
 							faux_str_free(tmp);
 							break_upper_loop = BOOL_TRUE;
 							break;
@@ -643,8 +672,8 @@ static bool_t pline_parse_module(const struct lys_module *module, faux_argv_t *a
 
 						// Completion
 						if (!str)
-							pline_add_compl(pline,
-								PCOMPL_NODE, cur_key->node, NULL);
+							pline_add_compl(pline, PCOMPL_NODE,
+								cur_key->node, NULL, PAT_LIST_KEY);
 
 						if (opts->default_keys && cur_key->dflt) {
 							pexpr_xpath_add_list_key(pexpr,
@@ -697,9 +726,10 @@ static bool_t pline_parse_module(const struct lys_module *module, faux_argv_t *a
 
 				// Completion
 				if (!str) {
-					pline_add_compl(pline, PCOMPL_TYPE, node, NULL);
+					pline_add_compl(pline, PCOMPL_TYPE, node,
+						NULL, PAT_LEAF_VALUE);
 					pline_add_compl_leafref(pline, node,
-						leaf->type, pexpr->xpath);
+						leaf->type, pexpr->xpath, PAT_LEAF_VALUE);
 					break;
 				}
 
@@ -737,9 +767,10 @@ static bool_t pline_parse_module(const struct lys_module *module, faux_argv_t *a
 
 			// Completion
 			if (!str) {
-				pline_add_compl(pline, PCOMPL_TYPE, node, pexpr->xpath);
+				pline_add_compl(pline, PCOMPL_TYPE, node,
+					pexpr->xpath, PAT_LEAFLIST_VALUE);
 				pline_add_compl_leafref(pline, node,
-					leaflist->type, pexpr->xpath);
+					leaflist->type, pexpr->xpath, PAT_LEAFLIST_VALUE);
 				break;
 			}
 
@@ -1227,7 +1258,7 @@ static void pline_print_type_help(const struct lysc_node *node,
 }
 
 
-void pline_print_completions(const pline_t *pline, bool_t help)
+void pline_print_completions(const pline_t *pline, bool_t help, pt_e enabled_types)
 {
 	faux_list_node_t *iter = NULL;
 	pcompl_t *pcompl = NULL;
@@ -1236,6 +1267,9 @@ void pline_print_completions(const pline_t *pline, bool_t help)
 	while ((pcompl = (pcompl_t *)faux_list_each(&iter))) {
 		struct lysc_type *type = NULL;
 		const struct lysc_node *node = pcompl->node;
+
+		if (!(pcompl->pat & enabled_types))
+			continue;
 
 		if (pcompl->xpath && !help) {
 			sr_val_t *vals = NULL;
