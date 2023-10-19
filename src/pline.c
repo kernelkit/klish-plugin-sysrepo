@@ -471,6 +471,7 @@ static bool_t parse_ext_xpath(const char *xpath, const char **raw_xpath,
 	char *space = NULL;
 	size_t len = 0;
 
+	*ds = SRP_REPO_EDIT; // Default
 	space = strchr(xpath, ' ');
 	if (space) {
 		*raw_xpath = space + 1;
@@ -483,12 +484,13 @@ static bool_t parse_ext_xpath(const char *xpath, const char **raw_xpath,
 			*ds = SR_DS_OPERATIONAL;
 		else if (faux_str_cmpn(xpath, "startup", len) == 0)
 			*ds = SR_DS_STARTUP;
+#ifdef SR_DS_FACTORY_DEFAULT
 		else if (faux_str_cmpn(xpath, "factory-default", len) == 0)
 			*ds = SR_DS_FACTORY_DEFAULT;
-		else
-			return BOOL_FALSE;
+#endif
+		else // No DS prefix found
+			*raw_xpath = xpath;
 	} else {
-		*ds = SRP_REPO_EDIT;
 		*raw_xpath = xpath;
 	}
 
