@@ -219,7 +219,7 @@ pexpr_t *pline_current_expr(pline_t *pline)
 
 static void pline_add_compl(pline_t *pline,
 	pcompl_type_e type, const struct lysc_node *node,
-	const char *xpath, pat_e pat)
+	const char *xpath, sr_datastore_t ds, pat_e pat)
 {
 	pcompl_t *pcompl = NULL;
 
@@ -229,8 +229,10 @@ static void pline_add_compl(pline_t *pline,
 	pcompl->type = type;
 	pcompl->node = node;
 	pcompl->pat = pat;
-	if (xpath)
+	if (xpath) {
 		pcompl->xpath = faux_str_dup(xpath);
+		pcompl->xpath_ds = ds;
+	}
 	faux_list_add(pline->compls, pcompl);
 }
 
@@ -279,7 +281,7 @@ static void pline_add_compl_subtree(pline_t *pline, const struct lys_module *mod
 			break;
 		}
 
-		pline_add_compl(pline, PCOMPL_NODE, iter, NULL, pat);
+		pline_add_compl(pline, PCOMPL_NODE, iter, NULL, SRP_REPO_EDIT, pat);
 	}
 }
 
@@ -452,7 +454,7 @@ static void pline_add_compl_leafref(pline_t *pline, const struct lysc_node *node
 
 	case LY_TYPE_LEAFREF: {
 		char *compl_xpath = klysc_leafref_xpath(node, type, xpath);
-		pline_add_compl(pline, PCOMPL_TYPE, NULL, compl_xpath, pat);
+		pline_add_compl(pline, PCOMPL_TYPE, NULL, compl_xpath, SRP_REPO_EDIT, pat);
 		faux_str_free(compl_xpath);
 		break;
 	}
@@ -460,6 +462,74 @@ static void pline_add_compl_leafref(pline_t *pline, const struct lysc_node *node
 	default:
 		break;
 	}
+}
+
+
+static bool_t parse_ext_xpath(const char *xpath, const char **raw_xpath,
+	sr_datastore_t *ds)
+{
+	char *space = NULL;
+	size_t len = 0;
+
+	space = strchr(xpath, ' ');
+	if (space) {
+		*raw_xpath = space + 1;
+		len = space - xpath;
+		if (faux_str_cmpn(xpath, "candidate", len) == 0)
+			*ds = SR_DS_CANDIDATE;
+		else if (faux_str_cmpn(xpath, "running", len) == 0)
+			*ds = SR_DS_RUNNING;
+		else if (faux_str_cmpn(xpath, "operational", len) == 0)
+			*ds = SR_DS_OPERATIONAL;
+		else if (faux_str_cmpn(xpath, "startup", len) == 0)
+			*ds = SR_DS_STARTUP;
+		else if (faux_str_cmpn(xpath, "factory-default", len) == 0)
+			*ds = SR_DS_FACTORY_DEFAULT;
+		else
+			return BOOL_FALSE;
+	} else {
+		*ds = SRP_REPO_EDIT;
+		*raw_xpath = xpath;
+	}
+
+	return BOOL_TRUE;
+}
+
+
+static void pline_add_compl_leaf(pline_t *pline, const struct lysc_node *node,
+	const char *xpath, pat_e pat)
+{
+	struct lysc_type *type = NULL;
+	const char *ext_xpath = NULL;
+
+	assert(pline);
+	if (!pline)
+		return;
+	assert(node);
+	if (!node)
+		return;
+
+	switch (node->nodetype) {
+	case LYS_LEAF:
+		type = ((struct lysc_node_leaf *)node)->type;
+		break;
+	case LYS_LEAFLIST:
+		type = ((struct lysc_node_leaflist *)node)->type;
+		break;
+	default:
+		return;
+	}
+
+	ext_xpath = klysc_node_ext_completion(node);
+	if (ext_xpath) {
+		const char *raw_xpath = NULL;
+		sr_datastore_t ds = SRP_REPO_EDIT;
+		if (parse_ext_xpath(ext_xpath, &raw_xpath, &ds))
+			pline_add_compl(pline, PCOMPL_TYPE, NULL, raw_xpath, ds, pat);
+	}
+	pline_add_compl(pline, PCOMPL_TYPE, node, xpath, SRP_REPO_EDIT, pat);
+	pline_add_compl_leafref(pline, node, type, xpath, pat);
+
 }
 
 
@@ -565,10 +635,8 @@ static bool_t pline_parse_module(const struct lys_module *module, faux_argv_t *a
 						if (!str) {
 							char *tmp = faux_str_sprintf("%s/%s",
 								pexpr->xpath, leaf->name);
-							pline_add_compl(pline, PCOMPL_TYPE,
-								iter, tmp, PAT_LIST_KEY);
-							pline_add_compl_leafref(pline, iter,
-								leaf->type, tmp, PAT_LIST_KEY);
+							pline_add_compl_leaf(pline, iter,
+								tmp, PAT_LIST_KEY);
 							faux_str_free(tmp);
 							break_upper_loop = BOOL_TRUE;
 							break;
@@ -643,10 +711,7 @@ static bool_t pline_parse_module(const struct lys_module *module, faux_argv_t *a
 							char *tmp = faux_str_sprintf("%s/%s",
 								pexpr->xpath,
 								cur_key->node->name);
-							pline_add_compl(pline, PCOMPL_TYPE,
-								cur_key->node, tmp, PAT_LIST_KEY);
-							pline_add_compl_leafref(pline, cur_key->node,
-								((const struct lysc_node_leaf *)cur_key->node)->type,
+							pline_add_compl_leaf(pline, cur_key->node,
 								tmp, PAT_LIST_KEY);
 							faux_str_free(tmp);
 							break_upper_loop = BOOL_TRUE;
@@ -674,7 +739,8 @@ static bool_t pline_parse_module(const struct lys_module *module, faux_argv_t *a
 						// Completion
 						if (!str)
 							pline_add_compl(pline, PCOMPL_NODE,
-								cur_key->node, NULL, PAT_LIST_KEY);
+								cur_key->node, NULL,
+								SRP_REPO_EDIT, PAT_LIST_KEY);
 
 						if (opts->default_keys && cur_key->dflt) {
 							pexpr_xpath_add_list_key(pexpr,
@@ -727,10 +793,8 @@ static bool_t pline_parse_module(const struct lys_module *module, faux_argv_t *a
 
 				// Completion
 				if (!str) {
-					pline_add_compl(pline, PCOMPL_TYPE, node,
-						NULL, PAT_LEAF_VALUE);
-					pline_add_compl_leafref(pline, node,
-						leaf->type, pexpr->xpath, PAT_LEAF_VALUE);
+					pline_add_compl_leaf(pline, node,
+						pexpr->xpath, PAT_LEAF_VALUE);
 					break;
 				}
 
@@ -768,10 +832,8 @@ static bool_t pline_parse_module(const struct lys_module *module, faux_argv_t *a
 
 			// Completion
 			if (!str) {
-				pline_add_compl(pline, PCOMPL_TYPE, node,
+				pline_add_compl_leaf(pline, node,
 					pexpr->xpath, PAT_LEAFLIST_VALUE);
-				pline_add_compl_leafref(pline, node,
-					leaflist->type, pexpr->xpath, PAT_LEAFLIST_VALUE);
 				break;
 			}
 

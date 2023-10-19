@@ -62,13 +62,53 @@ static bool_t klysc_ext(const struct lysc_ext_instance *exts,
 }
 
 
-// Get extension by name
+// Get extension by name from node
 bool_t klysc_node_ext(const struct lysc_node *node,
 	const char *module, const char *name, const char **argument)
 {
 	if (!node)
 		return BOOL_FALSE;
 	if (klysc_ext(node->exts, module, name, argument))
+		return BOOL_TRUE;
+
+	return BOOL_FALSE;
+}
+
+
+// Get extension by name from type
+bool_t klysc_type_ext(const struct lysc_type *type,
+	const char *module, const char *name, const char **argument)
+{
+	if (!type)
+		return BOOL_FALSE;
+	if (klysc_ext(type->exts, module, name, argument))
+		return BOOL_TRUE;
+
+	return BOOL_FALSE;
+}
+
+
+// Get extension by name from node or type
+bool_t klysc_node_or_type_ext(const struct lysc_node *node,
+	const char *module, const char *name, const char **argument)
+{
+	struct lysc_type *type = NULL;
+
+	if (!node)
+		return BOOL_FALSE;
+	if (klysc_node_ext(node, module, name, argument))
+		return BOOL_TRUE;
+	switch (node->nodetype) {
+	case LYS_LEAF:
+		type = ((struct lysc_node_leaf *)node)->type;
+		break;
+	case LYS_LEAFLIST:
+		type = ((struct lysc_node_leaflist *)node)->type;
+		break;
+	default:
+		return BOOL_FALSE;
+	}
+	if (klysc_type_ext(type, module, name, argument))
 		return BOOL_TRUE;
 
 	return BOOL_FALSE;
@@ -85,7 +125,7 @@ const char *klysc_node_ext_completion(const struct lysc_node *node)
 {
 	const char *xpath = NULL;
 
-	klysc_node_ext(node, "klish", "completion", &xpath);
+	klysc_node_or_type_ext(node, "klish", "completion", &xpath);
 
 	return xpath;
 }
