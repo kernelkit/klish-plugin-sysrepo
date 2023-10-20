@@ -1111,7 +1111,8 @@ err:
 }
 
 
-static int srp_compl_xpath(kcontext_t *context, const sr_datastore_t datastore)
+static int srp_compl_xpath_common(kcontext_t *context,
+	const sr_datastore_t datastore)
 {
 	sr_session_ctx_t *sess = NULL;
 	sr_val_t *vals = NULL;
@@ -1147,11 +1148,11 @@ static int srp_compl_xpath(kcontext_t *context, const sr_datastore_t datastore)
 
 int srp_compl_xpath_running(kcontext_t *context)
 {
-	return srp_compl_xpath(context, SR_DS_RUNNING);
+	return srp_compl_xpath_common(context, SR_DS_RUNNING);
 }
 
 
 int srp_compl_xpath_candidate(kcontext_t *context)
 {
-	return srp_compl_xpath(context, SR_DS_CANDIDATE);
+	return srp_compl_xpath_common(context, SR_DS_CANDIDATE);
 }
