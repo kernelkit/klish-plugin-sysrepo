@@ -62,8 +62,8 @@ int srp_insert(kcontext_t *context);
 int srp_verify(kcontext_t *context);
 int srp_commit(kcontext_t *context);
 int srp_reset(kcontext_t *context);
+int srp_show_abs(kcontext_t *context);
 int srp_show(kcontext_t *context);
-int srp_show_cur_path(kcontext_t *context);
 int srp_diff(kcontext_t *context);
 int srp_deactivate(kcontext_t *context);
 

@@ -79,7 +79,7 @@
 	<COMMAND name="show" help="Show" mode="switch">
 		<COMMAND name="running" help="Show running-config">
 			<PARAM name="path" ptype="/PLINE_EDIT" min="0" max="100"/>
-			<ACTION sym="srp_show@sysrepo">running</ACTION>
+			<ACTION sym="srp_show_abs@sysrepo">running</ACTION>
 		</COMMAND>
 	</COMMAND>
 
@@ -159,7 +159,7 @@
 
 	<COMMAND name="show" help="Show data hierarchy">
 		<PARAM name="path" ptype="/PLINE_EDIT" min="0" max="100"/>
-		<ACTION sym="srp_show_cur_path@sysrepo"/>
+		<ACTION sym="srp_show@sysrepo"/>
 	</COMMAND>
 
 	<COMMAND name="diff" help="Show diff relative running-config">

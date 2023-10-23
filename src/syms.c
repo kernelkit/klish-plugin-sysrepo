@@ -25,6 +25,10 @@
 
 #define ERRORMSG "Error: "
 
+#define ARG_PATH "path"
+#define ARG_FROM_PATH "from_path"
+#define ARG_TO_PATH "to_path"
+
 
 // Print sysrepo session errors
 static void srp_print_errors(sr_session_ctx_t *session)
@@ -274,14 +278,14 @@ static faux_argv_t *assemble_insert_to(sr_session_ctx_t *sess, const kpargv_t *p
 
 	assert(sess);
 
-	args = param2argv(cur_path, pargv, "from_path");
+	args = param2argv(cur_path, pargv, ARG_FROM_PATH);
 	pline = pline_parse(sess, args, opts);
 	expr = pline_current_expr(pline);
 	for (i = 0; i < (expr->args_num - expr->list_pos); i++) {
 		faux_argv_node_t *iter = faux_argv_iterr(args);
 		faux_argv_del(args, iter);
 	}
-	insert_to = param2argv(args, pargv, "to_path");
+	insert_to = param2argv(args, pargv, ARG_TO_PATH);
 	faux_argv_free(args);
 	if (candidate_value)
 		faux_argv_add(insert_to, candidate_value);
@@ -379,7 +383,7 @@ int srp_set(kcontext_t *context)
 	sess = srp_udata_sr_sess(context);
 
 	cur_path = (faux_argv_t *)srp_udata_path(context);
-	args = param2argv(cur_path, kcontext_pargv(context), "path");
+	args = param2argv(cur_path, kcontext_pargv(context), ARG_PATH);
 	pline = pline_parse(sess, args, srp_udata_opts(context));
 	faux_argv_free(args);
 
@@ -440,7 +444,7 @@ int srp_del(kcontext_t *context)
 	sess = srp_udata_sr_sess(context);
 
 	cur_path = (faux_argv_t *)srp_udata_path(context);
-	args = param2argv(cur_path, kcontext_pargv(context), "path");
+	args = param2argv(cur_path, kcontext_pargv(context), ARG_PATH);
 	pline = pline_parse(sess, args, srp_udata_opts(context));
 	faux_argv_free(args);
 
@@ -493,7 +497,7 @@ int srp_edit(kcontext_t *context)
 	sess = srp_udata_sr_sess(context);
 
 	cur_path = (faux_argv_t *)srp_udata_path(context);
-	args = param2argv(cur_path, kcontext_pargv(context), "path");
+	args = param2argv(cur_path, kcontext_pargv(context), ARG_PATH);
 	pline = pline_parse(sess, args, srp_udata_opts(context));
 
 	if (pline->invalid) {
@@ -619,7 +623,7 @@ int srp_insert(kcontext_t *context)
 	pargv = kcontext_pargv(context);
 
 	// 'from' argument
-	insert_from = param2argv(cur_path, pargv, "from_path");
+	insert_from = param2argv(cur_path, pargv, ARG_FROM_PATH);
 	pline = pline_parse(sess, insert_from, srp_udata_opts(context));
 	faux_argv_free(insert_from);
 
@@ -806,7 +810,7 @@ int srp_show_xml(kcontext_t *context)
 	sess = srp_udata_sr_sess(context);
 
 	cur_path = (faux_argv_t *)srp_udata_path(context);
-	args = param2argv(cur_path, kcontext_pargv(context), "path");
+	args = param2argv(cur_path, kcontext_pargv(context), ARG_PATH);
 	pline = pline_parse(sess, args, srp_udata_opts(context));
 	faux_argv_free(args);
 
@@ -928,17 +932,17 @@ static int show_path(kcontext_t *context, bool_t use_cur_path)
 		if (!kly_str2ds(script, strlen(script), &ds))
 			ds = SRP_REPO_EDIT;
 
-	return show(context, ds, "path", use_cur_path);
+	return show(context, ds, ARG_PATH, use_cur_path);
 }
 
 
-int srp_show(kcontext_t *context)
+int srp_show_abs(kcontext_t *context)
 {
 	return show_path(context, BOOL_FALSE);
 }
 
 
-int srp_show_cur_path(kcontext_t *context)
+int srp_show(kcontext_t *context)
 {
 	return show_path(context, BOOL_TRUE);
 }
@@ -959,7 +963,7 @@ int srp_deactivate(kcontext_t *context)
 	sess = srp_udata_sr_sess(context);
 
 	cur_path = (faux_argv_t *)srp_udata_path(context);
-	args = param2argv(cur_path, kcontext_pargv(context), "path");
+	args = param2argv(cur_path, kcontext_pargv(context), ARG_PATH);
 	pline = pline_parse(sess, args, srp_udata_opts(context));
 	faux_argv_free(args);
 
@@ -1043,11 +1047,11 @@ int srp_diff(kcontext_t *context)
 
 	cur_path = (faux_argv_t *)srp_udata_path(context);
 
-	if (kpargv_find(kcontext_pargv(context), "path") || cur_path) {
+	if (kpargv_find(kcontext_pargv(context), ARG_PATH) || cur_path) {
 		faux_argv_t *args = NULL;
 		pexpr_t *expr = NULL;
 
-		args = param2argv(cur_path, kcontext_pargv(context), "path");
+		args = param2argv(cur_path, kcontext_pargv(context), ARG_PATH);
 		pline = pline_parse(sess, args, srp_udata_opts(context));
 		faux_argv_free(args);
 
