@@ -78,7 +78,7 @@
 
 	<COMMAND name="show" help="Show" mode="switch">
 		<COMMAND name="running" help="Show running-config">
-			<ACTION sym="srp_show_running@sysrepo"/>
+			<ACTION sym="srp_show@sysrepo">running</ACTION>
 		</COMMAND>
 	</COMMAND>
 

@@ -917,22 +917,16 @@ err:
 
 int srp_show(kcontext_t *context)
 {
-	return show(context, SRP_REPO_EDIT);
-}
-
-
-int srp_show_running(kcontext_t *context)
-{
-	sr_session_ctx_t *sess = NULL;
+	sr_datastore_t ds = SRP_REPO_EDIT;
+	const char *script = NULL;
 
 	assert(context);
+	script = kcontext_script(context);
+	if (!faux_str_is_empty(script))
+		if (!kly_str2ds(script, strlen(script), &ds))
+			ds = SRP_REPO_EDIT;
 
-	sess = srp_udata_sr_sess(context);
-	sr_session_switch_ds(sess, SR_DS_RUNNING);
-	show_xpath(sess, NULL, srp_udata_opts(context));
-	sr_session_switch_ds(sess, SRP_REPO_EDIT);
-
-	return 0;
+	return show(context, ds);
 }
 
 
