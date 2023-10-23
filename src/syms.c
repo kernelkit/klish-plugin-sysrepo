@@ -1111,7 +1111,7 @@ err:
 }
 
 
-int srp_compl_xpath_common(kcontext_t *context)
+int srp_compl_xpath(kcontext_t *context)
 {
 	sr_session_ctx_t *sess = NULL;
 	sr_val_t *vals = NULL;
