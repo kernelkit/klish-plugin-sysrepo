@@ -33,6 +33,7 @@ C_DECL_BEGIN
 int srp_PLINE_SET(kcontext_t *context);
 int srp_PLINE_DEL(kcontext_t *context);
 int srp_PLINE_EDIT(kcontext_t *context);
+int srp_PLINE_EDIT_ABS(kcontext_t *context);
 int srp_PLINE_INSERT_FROM(kcontext_t *context);
 int srp_PLINE_INSERT_TO(kcontext_t *context);
 
@@ -44,7 +45,9 @@ int srp_help_set(kcontext_t *context);
 int srp_compl_del(kcontext_t *context);
 int srp_help_del(kcontext_t *context);
 int srp_compl_edit(kcontext_t *context);
+int srp_compl_edit_abs(kcontext_t *context);
 int srp_help_edit(kcontext_t *context);
+int srp_help_edit_abs(kcontext_t *context);
 int srp_compl_insert(kcontext_t *context);
 int srp_help_insert(kcontext_t *context);
 int srp_compl_insert_to(kcontext_t *context);

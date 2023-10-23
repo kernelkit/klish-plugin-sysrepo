@@ -96,7 +96,8 @@ static faux_argv_t *param2argv(const faux_argv_t *cur_path,
 // Candidate from pargv contains possible begin of current word (that must be
 // completed). kpargv's list don't contain candidate but only already parsed
 // words.
-static int srp_compl_or_help(kcontext_t *context, bool_t help, pt_e enabled_ptypes)
+static int srp_compl_or_help(kcontext_t *context, bool_t help,
+	pt_e enabled_ptypes, bool_t use_cur_path)
 {
 	faux_argv_t *args = NULL;
 	pline_t *pline = NULL;
@@ -108,7 +109,8 @@ static int srp_compl_or_help(kcontext_t *context, bool_t help, pt_e enabled_ptyp
 
 	sess = srp_udata_sr_sess(context);
 
-	cur_path = (faux_argv_t *)srp_udata_path(context);
+	if (use_cur_path)
+		cur_path = (faux_argv_t *)srp_udata_path(context);
 	entry_name = kentry_name(kcontext_candidate_entry(context));
 	args = param2argv(cur_path, kcontext_parent_pargv(context), entry_name);
 	pline = pline_parse(sess, args, srp_udata_opts(context));
@@ -122,61 +124,73 @@ static int srp_compl_or_help(kcontext_t *context, bool_t help, pt_e enabled_ptyp
 
 int srp_compl(kcontext_t *context)
 {
-	return srp_compl_or_help(context, BOOL_FALSE, PT_COMPL_ALL);
+	return srp_compl_or_help(context, BOOL_FALSE, PT_COMPL_ALL, BOOL_TRUE);
 }
 
 
 int srp_help(kcontext_t *context)
 {
-	return srp_compl_or_help(context, BOOL_TRUE, PT_COMPL_ALL);
+	return srp_compl_or_help(context, BOOL_TRUE, PT_COMPL_ALL, BOOL_TRUE);
 }
 
 
 int srp_compl_set(kcontext_t *context)
 {
-	return srp_compl_or_help(context, BOOL_FALSE, PT_COMPL_SET);
+	return srp_compl_or_help(context, BOOL_FALSE, PT_COMPL_SET, BOOL_TRUE);
 }
 
 
 int srp_help_set(kcontext_t *context)
 {
-	return srp_compl_or_help(context, BOOL_TRUE, PT_COMPL_SET);
+	return srp_compl_or_help(context, BOOL_TRUE, PT_COMPL_SET, BOOL_TRUE);
 }
 
 
 int srp_compl_del(kcontext_t *context)
 {
-	return srp_compl_or_help(context, BOOL_FALSE, PT_COMPL_DEL);
+	return srp_compl_or_help(context, BOOL_FALSE, PT_COMPL_DEL, BOOL_TRUE);
 }
 
 
 int srp_help_del(kcontext_t *context)
 {
-	return srp_compl_or_help(context, BOOL_TRUE, PT_COMPL_DEL);
+	return srp_compl_or_help(context, BOOL_TRUE, PT_COMPL_DEL, BOOL_TRUE);
 }
 
 
 int srp_compl_edit(kcontext_t *context)
 {
-	return srp_compl_or_help(context, BOOL_FALSE, PT_COMPL_EDIT);
+	return srp_compl_or_help(context, BOOL_FALSE, PT_COMPL_EDIT, BOOL_TRUE);
+}
+
+
+int srp_compl_edit_abs(kcontext_t *context)
+{
+	return srp_compl_or_help(context, BOOL_FALSE, PT_COMPL_EDIT, BOOL_FALSE);
 }
 
 
 int srp_help_edit(kcontext_t *context)
 {
-	return srp_compl_or_help(context, BOOL_TRUE, PT_COMPL_EDIT);
+	return srp_compl_or_help(context, BOOL_TRUE, PT_COMPL_EDIT, BOOL_TRUE);
+}
+
+
+int srp_help_edit_abs(kcontext_t *context)
+{
+	return srp_compl_or_help(context, BOOL_TRUE, PT_COMPL_EDIT, BOOL_FALSE);
 }
 
 
 int srp_compl_insert(kcontext_t *context)
 {
-	return srp_compl_or_help(context, BOOL_FALSE, PT_COMPL_INSERT);
+	return srp_compl_or_help(context, BOOL_FALSE, PT_COMPL_INSERT, BOOL_TRUE);
 }
 
 
 int srp_help_insert(kcontext_t *context)
 {
-	return srp_compl_or_help(context, BOOL_TRUE, PT_COMPL_INSERT);
+	return srp_compl_or_help(context, BOOL_TRUE, PT_COMPL_INSERT, BOOL_TRUE);
 }
 
 
@@ -198,8 +212,7 @@ int srp_prompt_edit_path(kcontext_t *context)
 
 
 static int srp_check_type(kcontext_t *context,
-	pt_e not_accepted_nodes,
-	size_t max_expr_num)
+	pt_e not_accepted_nodes, size_t max_expr_num, bool_t use_cur_path)
 {
 	int ret = -1;
 	faux_argv_t *args = NULL;
@@ -214,7 +227,8 @@ static int srp_check_type(kcontext_t *context,
 	assert(context);
 	sess = srp_udata_sr_sess(context);
 
-	cur_path = (faux_argv_t *)srp_udata_path(context);
+	if (use_cur_path)
+		cur_path = (faux_argv_t *)srp_udata_path(context);
 	entry_name = kentry_name(kcontext_candidate_entry(context));
 	value = kcontext_candidate_value(context);
 	args = param2argv(cur_path, kcontext_parent_pargv(context), entry_name);
@@ -245,25 +259,31 @@ err:
 
 int srp_PLINE_SET(kcontext_t *context)
 {
-	return srp_check_type(context, PT_NOT_SET, 0);
+	return srp_check_type(context, PT_NOT_SET, 0, BOOL_TRUE);
 }
 
 
 int srp_PLINE_DEL(kcontext_t *context)
 {
-	return srp_check_type(context, PT_NOT_DEL, 1);
+	return srp_check_type(context, PT_NOT_DEL, 1, BOOL_TRUE);
 }
 
 
 int srp_PLINE_EDIT(kcontext_t *context)
 {
-	return srp_check_type(context, PT_NOT_EDIT, 1);
+	return srp_check_type(context, PT_NOT_EDIT, 1, BOOL_TRUE);
+}
+
+
+int srp_PLINE_EDIT_ABS(kcontext_t *context)
+{
+	return srp_check_type(context, PT_NOT_EDIT, 1, BOOL_FALSE);
 }
 
 
 int srp_PLINE_INSERT_FROM(kcontext_t *context)
 {
-	return srp_check_type(context, PT_NOT_INSERT, 1);
+	return srp_check_type(context, PT_NOT_INSERT, 1, BOOL_TRUE);
 }
 
 

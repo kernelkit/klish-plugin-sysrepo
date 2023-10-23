@@ -49,6 +49,16 @@
 	<ACTION sym="PLINE_EDIT@sysrepo"/>
 </PTYPE>
 
+<PTYPE name="PLINE_EDIT_ABS">
+	<COMPL>
+		<ACTION sym="srp_compl_edit_abs@sysrepo"/>
+	</COMPL>
+	<HELP>
+		<ACTION sym="srp_help_edit_abs@sysrepo"/>
+	</HELP>
+	<ACTION sym="PLINE_EDIT_ABS@sysrepo"/>
+</PTYPE>
+
 <PTYPE name="PLINE_INSERT_FROM">
 	<COMPL>
 		<ACTION sym="srp_compl_insert@sysrepo"/>
@@ -78,7 +88,7 @@
 
 	<COMMAND name="show" help="Show" mode="switch">
 		<COMMAND name="running" help="Show running-config">
-			<PARAM name="path" ptype="/PLINE_EDIT" min="0" max="100"/>
+			<PARAM name="path" ptype="/PLINE_EDIT_ABS" min="0" max="100"/>
 			<ACTION sym="srp_show_abs@sysrepo">running</ACTION>
 		</COMMAND>
 	</COMMAND>

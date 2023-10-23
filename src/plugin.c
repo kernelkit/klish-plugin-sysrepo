@@ -50,6 +50,8 @@ int kplugin_sysrepo_init(kcontext_t *context)
 		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
 	kplugin_add_syms(plugin, ksym_new_ext("PLINE_EDIT", srp_PLINE_EDIT,
 		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
+	kplugin_add_syms(plugin, ksym_new_ext("PLINE_EDIT_ABS", srp_PLINE_EDIT_ABS,
+		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
 	kplugin_add_syms(plugin, ksym_new_ext("PLINE_INSERT_FROM", srp_PLINE_INSERT_FROM,
 		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
 	kplugin_add_syms(plugin, ksym_new_ext("PLINE_INSERT_TO", srp_PLINE_INSERT_TO,
@@ -70,7 +72,11 @@ int kplugin_sysrepo_init(kcontext_t *context)
 		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
 	kplugin_add_syms(plugin, ksym_new_ext("srp_compl_edit", srp_compl_edit,
 		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
+	kplugin_add_syms(plugin, ksym_new_ext("srp_compl_edit_abs", srp_compl_edit_abs,
+		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
 	kplugin_add_syms(plugin, ksym_new_ext("srp_help_edit", srp_help_edit,
+		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
+	kplugin_add_syms(plugin, ksym_new_ext("srp_help_edit_abs", srp_help_edit_abs,
 		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
 	kplugin_add_syms(plugin, ksym_new_ext("srp_compl_insert", srp_compl_insert,
 		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
