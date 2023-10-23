@@ -856,7 +856,8 @@ err:
 }
 
 
-static int show(kcontext_t *context, sr_datastore_t ds)
+static int show(kcontext_t *context, sr_datastore_t ds,
+	const char *path_var, bool_t use_cur_path)
 {
 	int ret = -1;
 	faux_argv_t *args = NULL;
@@ -871,10 +872,11 @@ static int show(kcontext_t *context, sr_datastore_t ds)
 	sess = srp_udata_sr_sess(context);
 	if (ds != SRP_REPO_EDIT)
 		sr_session_switch_ds(sess, ds);
-	cur_path = (faux_argv_t *)srp_udata_path(context);
+	if (use_cur_path)
+		cur_path = (faux_argv_t *)srp_udata_path(context);
 
-	if (kpargv_find(kcontext_pargv(context), "path") || cur_path) {
-		args = param2argv(cur_path, kcontext_pargv(context), "path");
+	if (kpargv_find(kcontext_pargv(context), path_var) || cur_path) {
+		args = param2argv(cur_path, kcontext_pargv(context), path_var);
 		pline = pline_parse(sess, args, srp_udata_opts(context));
 		faux_argv_free(args);
 
@@ -915,7 +917,7 @@ err:
 }
 
 
-int srp_show(kcontext_t *context)
+static int show_path(kcontext_t *context, bool_t use_cur_path)
 {
 	sr_datastore_t ds = SRP_REPO_EDIT;
 	const char *script = NULL;
@@ -926,7 +928,19 @@ int srp_show(kcontext_t *context)
 		if (!kly_str2ds(script, strlen(script), &ds))
 			ds = SRP_REPO_EDIT;
 
-	return show(context, ds);
+	return show(context, ds, "path", use_cur_path);
+}
+
+
+int srp_show(kcontext_t *context)
+{
+	return show_path(context, BOOL_FALSE);
+}
+
+
+int srp_show_cur_path(kcontext_t *context)
+{
+	return show_path(context, BOOL_TRUE);
 }
 
 

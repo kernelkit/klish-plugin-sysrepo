@@ -107,6 +107,8 @@ int kplugin_sysrepo_init(kcontext_t *context)
 		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
 	kplugin_add_syms(plugin, ksym_new_ext("srp_show", srp_show,
 		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
+	kplugin_add_syms(plugin, ksym_new_ext("srp_show_cur_path", srp_show_cur_path,
+		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
 	kplugin_add_syms(plugin, ksym_new_ext("srp_diff", srp_diff,
 		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
 	kplugin_add_syms(plugin, ksym_new_ext("srp_deactivate", srp_deactivate,
