@@ -50,8 +50,7 @@ int srp_help_insert(kcontext_t *context);
 int srp_compl_insert_to(kcontext_t *context);
 int srp_help_insert_to(kcontext_t *context);
 int srp_prompt_edit_path(kcontext_t *context);
-int srp_compl_xpath_running(kcontext_t *context);
-int srp_compl_xpath_candidate(kcontext_t *context);
+int srp_compl_xpath(kcontext_t *context);
 
 // Operations
 int srp_set(kcontext_t *context);
@@ -108,6 +107,9 @@ char *klysc_leafref_xpath(const struct lysc_node *node,
 const char *klysc_identityref_prefix(struct lysc_type_identityref *type,
 	const char *name);
 size_t klyd_visible_child_num(const struct lyd_node *node);
+bool_t kly_str2ds(const char *str, size_t len, sr_datastore_t *ds);
+bool_t kly_parse_ext_xpath(const char *xpath, const char **raw_xpath,
+	sr_datastore_t *ds);
 
 C_DECL_END
 

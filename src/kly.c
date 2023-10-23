@@ -456,3 +456,56 @@ size_t klyd_visible_child_num(const struct lyd_node *node)
 
 	return num;
 }
+
+
+bool_t kly_str2ds(const char *str, size_t len, sr_datastore_t *ds)
+{
+	if (!str)
+		return BOOL_FALSE;
+	if (len == 0)
+		return BOOL_FALSE;
+	if (!ds)
+		return BOOL_FALSE;
+
+	if (faux_str_cmpn(str, "candidate", len) == 0)
+		*ds = SR_DS_CANDIDATE;
+	else if (faux_str_cmpn(str, "running", len) == 0)
+		*ds = SR_DS_RUNNING;
+	else if (faux_str_cmpn(str, "operational", len) == 0)
+		*ds = SR_DS_OPERATIONAL;
+	else if (faux_str_cmpn(str, "startup", len) == 0)
+		*ds = SR_DS_STARTUP;
+#ifdef SR_DS_FACTORY_DEFAULT
+	else if (faux_str_cmpn(str, "factory-default", len) == 0)
+		*ds = SR_DS_FACTORY_DEFAULT;
+#endif
+	else // No DS prefix found
+		return BOOL_FALSE;
+
+	return BOOL_TRUE;
+}
+
+
+bool_t kly_parse_ext_xpath(const char *xpath, const char **raw_xpath,
+	sr_datastore_t *ds)
+{
+	char *space = NULL;
+
+	if (!xpath)
+		return BOOL_FALSE;
+	if (!raw_xpath)
+		return BOOL_FALSE;
+	if (!ds)
+		return BOOL_FALSE;
+
+	*ds = SRP_REPO_EDIT; // Default
+	*raw_xpath = xpath;
+	space = strchr(xpath, ' ');
+	if (space) {
+		size_t len = space - xpath;
+		if (kly_str2ds(xpath, len, ds))
+			*raw_xpath = space + 1;
+	}
+
+	return BOOL_TRUE;
+}

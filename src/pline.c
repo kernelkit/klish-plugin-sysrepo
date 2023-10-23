@@ -465,39 +465,6 @@ static void pline_add_compl_leafref(pline_t *pline, const struct lysc_node *node
 }
 
 
-static bool_t parse_ext_xpath(const char *xpath, const char **raw_xpath,
-	sr_datastore_t *ds)
-{
-	char *space = NULL;
-	size_t len = 0;
-
-	*ds = SRP_REPO_EDIT; // Default
-	space = strchr(xpath, ' ');
-	if (space) {
-		*raw_xpath = space + 1;
-		len = space - xpath;
-		if (faux_str_cmpn(xpath, "candidate", len) == 0)
-			*ds = SR_DS_CANDIDATE;
-		else if (faux_str_cmpn(xpath, "running", len) == 0)
-			*ds = SR_DS_RUNNING;
-		else if (faux_str_cmpn(xpath, "operational", len) == 0)
-			*ds = SR_DS_OPERATIONAL;
-		else if (faux_str_cmpn(xpath, "startup", len) == 0)
-			*ds = SR_DS_STARTUP;
-#ifdef SR_DS_FACTORY_DEFAULT
-		else if (faux_str_cmpn(xpath, "factory-default", len) == 0)
-			*ds = SR_DS_FACTORY_DEFAULT;
-#endif
-		else // No DS prefix found
-			*raw_xpath = xpath;
-	} else {
-		*raw_xpath = xpath;
-	}
-
-	return BOOL_TRUE;
-}
-
-
 static void pline_add_compl_leaf(pline_t *pline, const struct lysc_node *node,
 	const char *xpath, pat_e pat)
 {
@@ -526,12 +493,11 @@ static void pline_add_compl_leaf(pline_t *pline, const struct lysc_node *node,
 	if (ext_xpath) {
 		const char *raw_xpath = NULL;
 		sr_datastore_t ds = SRP_REPO_EDIT;
-		if (parse_ext_xpath(ext_xpath, &raw_xpath, &ds))
+		if (kly_parse_ext_xpath(ext_xpath, &raw_xpath, &ds))
 			pline_add_compl(pline, PCOMPL_TYPE, NULL, raw_xpath, ds, pat);
 	}
 	pline_add_compl(pline, PCOMPL_TYPE, node, xpath, SRP_REPO_EDIT, pat);
 	pline_add_compl_leafref(pline, node, type, xpath, pat);
-
 }
 
 

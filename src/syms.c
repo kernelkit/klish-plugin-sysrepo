@@ -1111,25 +1111,29 @@ err:
 }
 
 
-static int srp_compl_xpath_common(kcontext_t *context,
-	const sr_datastore_t datastore)
+int srp_compl_xpath_common(kcontext_t *context)
 {
 	sr_session_ctx_t *sess = NULL;
 	sr_val_t *vals = NULL;
 	size_t val_num = 0;
 	size_t i = 0;
 	const char *script = NULL;
+	const char *raw_xpath = NULL;
+	sr_datastore_t ds = SRP_REPO_EDIT;
 
 	assert(context);
 	script = kcontext_script(context);
 	if (faux_str_is_empty(script))
 		return -1;
 
-	sess = srp_udata_sr_sess(context);
-	if (datastore != SRP_REPO_EDIT)
-		sr_session_switch_ds(sess, datastore);
+	if (!kly_parse_ext_xpath(script, &raw_xpath, &ds))
+		return -1;
 
-	sr_get_items(sess, script, 0, 0, &vals, &val_num);
+	sess = srp_udata_sr_sess(context);
+	if (ds != SRP_REPO_EDIT)
+		sr_session_switch_ds(sess, ds);
+
+	sr_get_items(sess, raw_xpath, 0, 0, &vals, &val_num);
 	for (i = 0; i < val_num; i++) {
 		char *tmp = sr_val_to_str(&vals[i]);
 		if (!tmp)
@@ -1139,20 +1143,8 @@ static int srp_compl_xpath_common(kcontext_t *context,
 	}
 	sr_free_values(vals, val_num);
 
-	if (datastore != SRP_REPO_EDIT)
+	if (ds != SRP_REPO_EDIT)
 		sr_session_switch_ds(sess, SRP_REPO_EDIT);
 
 	return 0;
-}
-
-
-int srp_compl_xpath_running(kcontext_t *context)
-{
-	return srp_compl_xpath_common(context, SR_DS_RUNNING);
-}
-
-
-int srp_compl_xpath_candidate(kcontext_t *context)
-{
-	return srp_compl_xpath_common(context, SR_DS_CANDIDATE);
 }
