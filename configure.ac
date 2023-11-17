@@ -75,13 +75,6 @@ AM_CONDITIONAL(DEBUG,test x$enable_debug = xyes)
 
 
 ################################
-# Variables to install plugins
-################################
-PLUGINS_SUBDIR=klish/plugins
-AC_SUBST(PLUGINS_SUBDIR)
-
-
-################################
 # Check for mandatory faux library
 ################################
 AC_ARG_WITH(faux,

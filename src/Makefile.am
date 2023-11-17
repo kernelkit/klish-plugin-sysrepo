@@ -1,14 +1,11 @@
-plugindir = ${libdir}/@PLUGINS_SUBDIR@
-plugin_LTLIBRARIES =
+lib_LTLIBRARIES += libklish-plugin-sysrepo.la
+libklish_plugin_sysrepo_la_SOURCES =
+libklish_plugin_sysrepo_la_LDFLAGS = $(AM_LDFLAGS) -avoid-version -module
+libklish_plugin_sysrepo_la_LIBS =
+libklish_plugin_sysrepo_la_CFLAGS = $(AM_CFLAGS)
+#libklish_plugin_sysrepo_la_LIBADD = libsysrepo.la
 
-plugin_LTLIBRARIES += kplugin-sysrepo.la
-kplugin_sysrepo_la_SOURCES =
-kplugin_sysrepo_la_LDFLAGS = $(AM_LDFLAGS) -avoid-version -module
-kplugin_sysrepo_la_LIBS =
-kplugin_sysrepo_la_CFLAGS = $(AM_CFLAGS)
-#kplugin_sysrepo_la_LIBADD = libsysrepo.la
-
-kplugin_sysrepo_la_SOURCES += \
+libklish_plugin_sysrepo_la_SOURCES += \
 	src/plugin.c \
 	src/private.h \
 	src/syms.c \
