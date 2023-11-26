@@ -185,6 +185,51 @@ char *klyd_node_value(const struct lyd_node *node)
 	return result;
 }
 
+/*
+ * We can collapse containers that only hold a single list item, e.g.,
+ * the classic ietf-interfaces:
+ *
+ *      edit interfaces interface eth0
+ * vs
+ *      edit interface eth0
+ *
+ * There are however a few ugly exceptions that can both be handled more
+ * gracefully and more sane.  E.g., check node->parent or node->module.
+ * But they do cover most of the cases with the least amount of code.
+ */
+int klysc_is_container_list(const struct lysc_node *node)
+{
+	const struct lysc_node *subtree = NULL;
+	const struct lysc_node *iter = NULL;
+	int list = 0;
+
+	if (!node)
+		return 0;
+
+	if (!(node->nodetype & LYS_CONTAINER))
+		return 0;
+
+	/* ietf-routing, exception -- has ipv4 + ipv6 subtrees */
+	if (!strcmp(node->name, "static-routes"))
+		return 1;	/* always collapse */
+
+	/* never collapse ipv4 route or ipv6 route, for now */
+	if (!strcmp(node->name, "ipv4") || !strcmp(node->name, "ipv6"))
+		return 0;	/* never collapse */
+
+	subtree = lysc_node_child(node);
+	LY_LIST_FOR(subtree, iter) {
+		switch (iter->nodetype) {
+		case LYS_LIST:
+			list++;
+			break;
+		default:
+			return 0;
+		}
+	}
+
+	return list == 1;
+}
 
 // Don't use standard lys_find_child() because it checks given module to be
 // equal to found node's module. So augmented nodes will not be found.
@@ -209,6 +254,16 @@ const struct lysc_node *klysc_find_child(const struct lysc_node *node,
 			if (node_in)
 				return node_in;
 			continue;
+		}
+		/* Special case also for containers with single list item */
+		if (iter->nodetype & LYS_CONTAINER) {
+			const struct lysc_node *node_in;
+
+			if (klysc_is_container_list(iter)) {
+				node_in = klysc_find_child(lysc_node_child(iter), name);
+				if (node_in)
+					return node_in;
+			}
 		}
 		if (!faux_str_cmp(iter->name, name))
 			return iter;

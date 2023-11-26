@@ -105,6 +105,7 @@ bool_t klysc_node_ext_is_password(const struct lysc_node *node);
 const char *klysc_node_ext_completion(const struct lysc_node *node);
 const char *klysc_node_ext_default(const struct lysc_node *node);
 char *klyd_node_value(const struct lyd_node *node);
+int klysc_is_container_list(const struct lysc_node *node);
 const struct lysc_node *klysc_find_child(const struct lysc_node *node,
 	const char *name);
 char *klysc_leafref_xpath(const struct lysc_node *node,

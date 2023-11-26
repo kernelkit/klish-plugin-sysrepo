@@ -236,7 +236,6 @@ static void pline_add_compl(pline_t *pline,
 	faux_list_add(pline->compls, pcompl);
 }
 
-
 static void pline_add_compl_subtree(pline_t *pline, const struct lys_module *module,
 	const struct lysc_node *node)
 {
@@ -265,6 +264,10 @@ static void pline_add_compl_subtree(pline_t *pline, const struct lys_module *mod
 		}
 		switch(iter->nodetype) {
 		case LYS_CONTAINER:
+			if (klysc_is_container_list(iter)) {
+				pline_add_compl_subtree(pline, module, iter);
+				continue;
+			}
 			pat = PAT_CONTAINER;
 			break;
 		case LYS_LEAF:
@@ -541,8 +544,9 @@ static bool_t pline_parse_module(const struct lys_module *module, faux_argv_t *a
 			}
 
 			// Add current node to Xpath
-			pexpr_xpath_add_node(pexpr,
-				node->module->name, node->name);
+			if (node->parent && klysc_is_container_list(node->parent))
+				pexpr_xpath_add_node(pexpr, node->parent->module->name, node->parent->name);
+			pexpr_xpath_add_node(pexpr, node->module->name, node->name);
 		}
 
 		// Root of the module

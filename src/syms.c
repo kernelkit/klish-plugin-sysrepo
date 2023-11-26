@@ -550,6 +550,7 @@ int srp_set(kcontext_t *context)
 			SR_ERR_OK) {
 			err_num++;
 			srp_error(sess, ERRORMSG "Can't set data\n");
+			pline_debug(pline);
 			break;
 		}
 	}
