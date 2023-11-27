@@ -45,80 +45,80 @@ int kplugin_sysrepo_init(kcontext_t *context)
 
 	// Types
 	kplugin_add_syms(plugin, ksym_new_ext("PLINE_SET", srp_PLINE_SET,
-		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
+		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC, KSYM_SILENT));
 	kplugin_add_syms(plugin, ksym_new_ext("PLINE_DEL", srp_PLINE_DEL,
-		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
+		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC, KSYM_SILENT));
 	kplugin_add_syms(plugin, ksym_new_ext("PLINE_EDIT", srp_PLINE_EDIT,
-		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
+		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC, KSYM_SILENT));
 	kplugin_add_syms(plugin, ksym_new_ext("PLINE_EDIT_ABS", srp_PLINE_EDIT_ABS,
-		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
+		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC, KSYM_SILENT));
 	kplugin_add_syms(plugin, ksym_new_ext("PLINE_INSERT_FROM", srp_PLINE_INSERT_FROM,
-		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
+		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC, KSYM_SILENT));
 	kplugin_add_syms(plugin, ksym_new_ext("PLINE_INSERT_TO", srp_PLINE_INSERT_TO,
-		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
+		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC, KSYM_SILENT));
 
 	// Completion/Help/Prompt
 	kplugin_add_syms(plugin, ksym_new_ext("srp_compl", srp_compl,
-		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
+		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC, KSYM_NONSILENT));
 	kplugin_add_syms(plugin, ksym_new_ext("srp_help", srp_help,
-		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
+		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC, KSYM_NONSILENT));
 	kplugin_add_syms(plugin, ksym_new_ext("srp_compl_set", srp_compl_set,
-		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
+		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC, KSYM_NONSILENT));
 	kplugin_add_syms(plugin, ksym_new_ext("srp_help_set", srp_help_set,
-		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
+		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC, KSYM_NONSILENT));
 	kplugin_add_syms(plugin, ksym_new_ext("srp_compl_del", srp_compl_del,
-		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
+		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC, KSYM_NONSILENT));
 	kplugin_add_syms(plugin, ksym_new_ext("srp_help_del", srp_help_del,
-		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
+		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC, KSYM_NONSILENT));
 	kplugin_add_syms(plugin, ksym_new_ext("srp_compl_edit", srp_compl_edit,
-		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
+		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC, KSYM_NONSILENT));
 	kplugin_add_syms(plugin, ksym_new_ext("srp_compl_edit_abs", srp_compl_edit_abs,
-		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
+		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC, KSYM_NONSILENT));
 	kplugin_add_syms(plugin, ksym_new_ext("srp_help_edit", srp_help_edit,
-		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
+		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC, KSYM_NONSILENT));
 	kplugin_add_syms(plugin, ksym_new_ext("srp_help_edit_abs", srp_help_edit_abs,
-		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
+		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC, KSYM_NONSILENT));
 	kplugin_add_syms(plugin, ksym_new_ext("srp_compl_insert", srp_compl_insert,
-		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
+		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC, KSYM_NONSILENT));
 	kplugin_add_syms(plugin, ksym_new_ext("srp_help_insert", srp_help_insert,
-		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
+		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC, KSYM_NONSILENT));
 	kplugin_add_syms(plugin, ksym_new_ext("srp_compl_insert_to", srp_compl_insert_to,
-		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
+		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC, KSYM_NONSILENT));
 	kplugin_add_syms(plugin, ksym_new_ext("srp_help_insert_to", srp_help_insert_to,
-		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
+		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC, KSYM_NONSILENT));
 	kplugin_add_syms(plugin, ksym_new_ext("srp_prompt_edit_path", srp_prompt_edit_path,
-		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
+		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC, KSYM_NONSILENT));
 	kplugin_add_syms(plugin, ksym_new_ext("srp_compl_xpath", srp_compl_xpath,
-		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
+		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC, KSYM_NONSILENT));
 
 	// Operations
 	kplugin_add_syms(plugin, ksym_new_ext("srp_set", srp_set,
-		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
+		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC, KSYM_NONSILENT));
 	kplugin_add_syms(plugin, ksym_new_ext("srp_del", srp_del,
-		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
+		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC, KSYM_NONSILENT));
 	// Note: 'edit', 'top', 'up'  must be sync to set current path
 	kplugin_add_syms(plugin, ksym_new_ext("srp_edit", srp_edit,
-		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
+		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC, KSYM_NONSILENT));
 	kplugin_add_syms(plugin, ksym_new_ext("srp_top", srp_top,
-		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
+		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC, KSYM_NONSILENT));
 	kplugin_add_syms(plugin, ksym_new_ext("srp_up", srp_up,
-		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
+		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC, KSYM_NONSILENT));
 	kplugin_add_syms(plugin, ksym_new_ext("srp_insert", srp_insert,
-		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
+		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC, KSYM_NONSILENT));
 	kplugin_add_syms(plugin, ksym_new_ext("srp_verify", srp_verify,
-		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
+		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC, KSYM_NONSILENT));
 	kplugin_add_syms(plugin, ksym_new_ext("srp_commit", srp_commit,
-		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
+		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC, KSYM_NONSILENT));
 	kplugin_add_syms(plugin, ksym_new_ext("srp_reset", srp_reset,
-		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
+		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC, KSYM_NONSILENT));
 	kplugin_add_syms(plugin, ksym_new_ext("srp_show_abs", srp_show_abs,
-		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
+		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC, KSYM_NONSILENT));
 	kplugin_add_syms(plugin, ksym_new_ext("srp_show", srp_show,
-		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
+		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC, KSYM_NONSILENT));
 	kplugin_add_syms(plugin, ksym_new_ext("srp_diff", srp_diff,
-		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
+		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC, KSYM_NONSILENT));
 	kplugin_add_syms(plugin, ksym_new_ext("srp_deactivate", srp_deactivate,
-		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
+		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC, KSYM_NONSILENT));
 
 	// User-data initialization
 	udata = faux_zmalloc(sizeof(*udata));
