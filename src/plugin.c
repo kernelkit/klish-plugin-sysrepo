@@ -87,7 +87,7 @@ int kplugin_sysrepo_init(kcontext_t *context)
 	kplugin_add_syms(plugin, ksym_new_ext("srp_help_insert_to", srp_help_insert_to,
 		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC, KSYM_NONSILENT));
 	kplugin_add_syms(plugin, ksym_new_ext("srp_prompt_edit_path", srp_prompt_edit_path,
-		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC, KSYM_NONSILENT));
+		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC, KSYM_SILENT));
 	kplugin_add_syms(plugin, ksym_new_ext("srp_compl_xpath", srp_compl_xpath,
 		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC, KSYM_NONSILENT));
 
@@ -100,9 +100,9 @@ int kplugin_sysrepo_init(kcontext_t *context)
 	kplugin_add_syms(plugin, ksym_new_ext("srp_edit", srp_edit,
 		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC, KSYM_NONSILENT));
 	kplugin_add_syms(plugin, ksym_new_ext("srp_top", srp_top,
-		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC, KSYM_NONSILENT));
+		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC, KSYM_SILENT));
 	kplugin_add_syms(plugin, ksym_new_ext("srp_up", srp_up,
-		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC, KSYM_NONSILENT));
+		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC, KSYM_SILENT));
 	kplugin_add_syms(plugin, ksym_new_ext("srp_insert", srp_insert,
 		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC, KSYM_NONSILENT));
 	kplugin_add_syms(plugin, ksym_new_ext("srp_verify", srp_verify,

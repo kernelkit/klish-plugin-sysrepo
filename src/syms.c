@@ -204,7 +204,8 @@ int srp_prompt_edit_path(kcontext_t *context)
 	cur_path = (faux_argv_t *)srp_udata_path(context);
 	if (cur_path)
 		path = faux_argv_line(cur_path);
-	printf("[edit%s%s]\n", path ? " " : "", path ? path : "");
+	kcontext_printf(context, "[edit%s%s]\n",
+		path ? " " : "", path ? path : "");
 	faux_str_free(path);
 
 	return 0;
