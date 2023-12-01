@@ -13,6 +13,8 @@
 #include <faux/str.h>
 #include <faux/list.h>
 #include <faux/argv.h>
+#include <faux/ini.h>
+#include <faux/conv.h>
 
 #include <sysrepo.h>
 #include <sysrepo/xpath.h>
@@ -1361,4 +1363,102 @@ void pline_print_completions(const pline_t *pline, bool_t help, pt_e enabled_typ
 	// Restore default DS
 	if (current_ds != SRP_REPO_EDIT)
 		sr_session_switch_ds(pline->sess, SRP_REPO_EDIT);
+}
+
+
+int pline_parse_conf(const char *conf, pline_opts_t *opts)
+{
+	faux_ini_t *ini = NULL;
+	const char *val = NULL;
+
+	if (!opts)
+		return -1;
+	if (!conf)
+		return 0; // Use defaults
+
+	ini = faux_ini_new();
+	if (!faux_ini_parse_str(ini, conf)) {
+		faux_ini_free(ini);
+		return -1;
+	}
+
+	if ((val = faux_ini_find(ini, "ShowBrackets"))) {
+		if (faux_str_cmp(val, "y") == 0)
+			opts->show_brackets = BOOL_TRUE;
+		else if (faux_str_cmp(val, "n") == 0)
+			opts->show_brackets = BOOL_FALSE;
+	}
+
+	if ((val = faux_ini_find(ini, "ShowSemicolons"))) {
+		if (faux_str_cmp(val, "y") == 0)
+			opts->show_semicolons = BOOL_TRUE;
+		else if (faux_str_cmp(val, "n") == 0)
+			opts->show_semicolons = BOOL_FALSE;
+	}
+
+	if ((val = faux_ini_find(ini, "FirstKeyWithStatement"))) {
+		if (faux_str_cmp(val, "y") == 0)
+			opts->first_key_w_stmt = BOOL_TRUE;
+		else if (faux_str_cmp(val, "n") == 0)
+			opts->first_key_w_stmt = BOOL_FALSE;
+	}
+
+	if ((val = faux_ini_find(ini, "KeysWithStatement"))) {
+		if (faux_str_cmp(val, "y") == 0)
+			opts->keys_w_stmt = BOOL_TRUE;
+		else if (faux_str_cmp(val, "n") == 0)
+			opts->keys_w_stmt = BOOL_FALSE;
+	}
+
+	if ((val = faux_ini_find(ini, "Colorize"))) {
+		if (faux_str_cmp(val, "y") == 0)
+			opts->colorize = BOOL_TRUE;
+		else if (faux_str_cmp(val, "n") == 0)
+			opts->colorize = BOOL_FALSE;
+	}
+
+	if ((val = faux_ini_find(ini, "Indent"))) {
+		unsigned char indent = 0;
+		if (faux_conv_atouc(val, &indent, 10))
+			opts->indent = indent;
+	}
+
+	if ((val = faux_ini_find(ini, "DefaultKeys"))) {
+		if (faux_str_cmp(val, "y") == 0)
+			opts->default_keys = BOOL_TRUE;
+		else if (faux_str_cmp(val, "n") == 0)
+			opts->default_keys = BOOL_FALSE;
+	}
+
+	if ((val = faux_ini_find(ini, "ShowDefaultKeys"))) {
+		if (faux_str_cmp(val, "y") == 0)
+			opts->show_default_keys = BOOL_TRUE;
+		else if (faux_str_cmp(val, "n") == 0)
+			opts->show_default_keys = BOOL_FALSE;
+	}
+
+	if ((val = faux_ini_find(ini, "HidePasswords"))) {
+		if (faux_str_cmp(val, "y") == 0)
+			opts->hide_passwords = BOOL_TRUE;
+		else if (faux_str_cmp(val, "n") == 0)
+			opts->hide_passwords = BOOL_FALSE;
+	}
+
+	if ((val = faux_ini_find(ini, "EnableNACM"))) {
+		if (faux_str_cmp(val, "y") == 0)
+			opts->enable_nacm = BOOL_TRUE;
+		else if (faux_str_cmp(val, "n") == 0)
+			opts->enable_nacm = BOOL_FALSE;
+	}
+
+	if ((val = faux_ini_find(ini, "Oneliners"))) {
+		if (faux_str_cmp(val, "y") == 0)
+			opts->oneliners = BOOL_TRUE;
+		else if (faux_str_cmp(val, "n") == 0)
+			opts->oneliners = BOOL_FALSE;
+	}
+
+	faux_ini_free(ini);
+
+	return 0;
 }

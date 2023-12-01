@@ -182,6 +182,7 @@ typedef struct {
 C_DECL_BEGIN
 
 pline_t *pline_new(sr_session_ctx_t *sess);
+int pline_parse_conf(const char *conf, pline_opts_t *opts);
 pline_t *pline_parse(sr_session_ctx_t *sess, faux_argv_t *argv, pline_opts_t *opts);
 pexpr_t *pline_current_expr(pline_t *pline);
 

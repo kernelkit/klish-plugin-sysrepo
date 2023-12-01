@@ -22,8 +22,6 @@
 const uint8_t kplugin_sysrepo_major = KPLUGIN_MAJOR;
 const uint8_t kplugin_sysrepo_minor = KPLUGIN_MINOR;
 
-static int parse_plugin_conf(const char *conf, pline_opts_t *opts);
-
 static int kplugin_sysrepo_init_session(kcontext_t *context);
 static int kplugin_sysrepo_fini_session(kcontext_t *context);
 
@@ -142,7 +140,7 @@ int kplugin_sysrepo_init(kcontext_t *context)
 	udata->opts.hide_passwords = BOOL_TRUE;
 	udata->opts.enable_nacm = BOOL_FALSE;
 	udata->opts.oneliners = BOOL_TRUE;
-	parse_plugin_conf(kplugin_conf(plugin), &udata->opts);
+	pline_parse_conf(kplugin_conf(plugin), &udata->opts);
 
 	kplugin_set_udata(plugin, udata);
 
@@ -220,104 +218,6 @@ sr_session_ctx_t *srp_udata_sr_sess(kcontext_t *context)
 	assert(udata);
 
 	return udata->sr_sess;
-}
-
-
-static int parse_plugin_conf(const char *conf, pline_opts_t *opts)
-{
-	faux_ini_t *ini = NULL;
-	const char *val = NULL;
-
-	if (!opts)
-		return -1;
-	if (!conf)
-		return 0; // Use defaults
-
-	ini = faux_ini_new();
-	if (!faux_ini_parse_str(ini, conf)) {
-		faux_ini_free(ini);
-		return -1;
-	}
-
-	if ((val = faux_ini_find(ini, "ShowBrackets"))) {
-		if (faux_str_cmp(val, "y") == 0)
-			opts->show_brackets = BOOL_TRUE;
-		else if (faux_str_cmp(val, "n") == 0)
-			opts->show_brackets = BOOL_FALSE;
-	}
-
-	if ((val = faux_ini_find(ini, "ShowSemicolons"))) {
-		if (faux_str_cmp(val, "y") == 0)
-			opts->show_semicolons = BOOL_TRUE;
-		else if (faux_str_cmp(val, "n") == 0)
-			opts->show_semicolons = BOOL_FALSE;
-	}
-
-	if ((val = faux_ini_find(ini, "FirstKeyWithStatement"))) {
-		if (faux_str_cmp(val, "y") == 0)
-			opts->first_key_w_stmt = BOOL_TRUE;
-		else if (faux_str_cmp(val, "n") == 0)
-			opts->first_key_w_stmt = BOOL_FALSE;
-	}
-
-	if ((val = faux_ini_find(ini, "KeysWithStatement"))) {
-		if (faux_str_cmp(val, "y") == 0)
-			opts->keys_w_stmt = BOOL_TRUE;
-		else if (faux_str_cmp(val, "n") == 0)
-			opts->keys_w_stmt = BOOL_FALSE;
-	}
-
-	if ((val = faux_ini_find(ini, "Colorize"))) {
-		if (faux_str_cmp(val, "y") == 0)
-			opts->colorize = BOOL_TRUE;
-		else if (faux_str_cmp(val, "n") == 0)
-			opts->colorize = BOOL_FALSE;
-	}
-
-	if ((val = faux_ini_find(ini, "Indent"))) {
-		unsigned char indent = 0;
-		if (faux_conv_atouc(val, &indent, 10))
-			opts->indent = indent;
-	}
-
-	if ((val = faux_ini_find(ini, "DefaultKeys"))) {
-		if (faux_str_cmp(val, "y") == 0)
-			opts->default_keys = BOOL_TRUE;
-		else if (faux_str_cmp(val, "n") == 0)
-			opts->default_keys = BOOL_FALSE;
-	}
-
-	if ((val = faux_ini_find(ini, "ShowDefaultKeys"))) {
-		if (faux_str_cmp(val, "y") == 0)
-			opts->show_default_keys = BOOL_TRUE;
-		else if (faux_str_cmp(val, "n") == 0)
-			opts->show_default_keys = BOOL_FALSE;
-	}
-
-	if ((val = faux_ini_find(ini, "HidePasswords"))) {
-		if (faux_str_cmp(val, "y") == 0)
-			opts->hide_passwords = BOOL_TRUE;
-		else if (faux_str_cmp(val, "n") == 0)
-			opts->hide_passwords = BOOL_FALSE;
-	}
-
-	if ((val = faux_ini_find(ini, "EnableNACM"))) {
-		if (faux_str_cmp(val, "y") == 0)
-			opts->enable_nacm = BOOL_TRUE;
-		else if (faux_str_cmp(val, "n") == 0)
-			opts->enable_nacm = BOOL_FALSE;
-	}
-
-	if ((val = faux_ini_find(ini, "Oneliners"))) {
-		if (faux_str_cmp(val, "y") == 0)
-			opts->oneliners = BOOL_TRUE;
-		else if (faux_str_cmp(val, "n") == 0)
-			opts->oneliners = BOOL_FALSE;
-	}
-
-	faux_ini_free(ini);
-
-	return 0;
 }
 
 
