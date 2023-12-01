@@ -153,6 +153,32 @@ AC_SEARCH_LIBS([sr_connect], [sysrepo],
 
 
 ################################
+# Check for mandatory klish library
+################################
+AC_ARG_WITH(klish,
+            [AS_HELP_STRING([--with-klish=DIR],
+                            [Search DIR directory for klish library files [default=yes]])],
+            [use_klish=$withval],
+            [use_klish=yes])
+
+AS_IF([test x$use_klish != xyes],
+  [
+    CPPFLAGS="-I${use_klish} ${CPPFLAGS}"
+    LDFLAGS="-L${use_klish}/.libs ${LDFLAGS}"
+  ]
+)
+
+AC_CHECK_HEADERS([klish/kcontext.h],
+	[],
+	[AC_MSG_ERROR([cannot find <klish/kcontext.h> header file])]
+	)
+AC_SEARCH_LIBS([kcontext_scheme], [klish],
+	[],
+	[AC_MSG_ERROR([cannot find working klish library])]
+	)
+
+
+################################
 # Install XML
 ################################
 AC_ARG_ENABLE(xml-install,
