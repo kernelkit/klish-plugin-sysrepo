@@ -21,13 +21,15 @@ int main(int argc, char **argv)
 	faux_file_t *file = NULL;
 	char *line = NULL;
 	pline_opts_t opts;
+	size_t err_num = 0;
+	bool_t stop_on_error = BOOL_TRUE;
 
 	err = sr_connect(SR_CONN_DEFAULT, &conn);
 	if (err) {
 		fprintf(stderr, "Error: Can't connect to sysrepo\n");
 		goto out;
 	}
-	err = sr_session_start(conn, SR_DS_RUNNING, &sess);
+	err = sr_session_start(conn, SR_DS_CANDIDATE, &sess);
 	if (err) {
 		fprintf(stderr, "Error: Can't start session\n");
 		goto out;
@@ -50,26 +52,43 @@ int main(int argc, char **argv)
 		pline = pline_parse(sess, args, &opts);
 		faux_argv_free(args);
 		if (!pline || pline->invalid) {
-			fprintf(stderr, "Invalid line: %s\n", line);
+			err_num++;
+			fprintf(stderr, "Error: Illegal: %s\n", line);
 		} else {
-			pline_debug(pline);
-			printf("pline\n");
-//			pline_print_completions(pline, BOOL_TRUE, PT_COMPL_ALL);
+			faux_list_node_t *iter = NULL;
+			pexpr_t *expr = NULL;
+
+			iter = faux_list_head(pline->exprs);
+			while ((expr = (pexpr_t *)faux_list_each(&iter))) {
+				if (!(expr->pat & PT_SET)) {
+					err_num++;
+					fprintf(stderr, "Error: Illegal expression for set operation\n");
+					break;
+				}
+				if (sr_set_item_str(sess, expr->xpath, expr->value, NULL, 0) !=
+					SR_ERR_OK) {
+					err_num++;
+					fprintf(stderr, "Error: Can't set data\n");
+					break;
+				}
+			}
+		}
+		if (stop_on_error && (err_num > 0)) {
+			sr_discard_changes(sess);
+			goto out;
 		}
 		pline_free(pline);
 		faux_str_free(line);
 	}
 
-/*
-	faux_argv_t *args = faux_argv_new();
-	faux_argv_parse(args, argv[1]);
-	faux_argv_del_continuable(args);
-	pline = pline_parse(sess, args, 0);
-	faux_argv_free(args);
-	pline_debug(pline);
-	pline_print_completions(pline, BOOL_TRUE, PT_COMPL_ALL);
-	pline_free(pline);
-*/
+	if (sr_has_changes(sess)) {
+		if (sr_apply_changes(sess, 0) != SR_ERR_OK) {
+			sr_discard_changes(sess);
+			fprintf(stderr, "Error: Can't apply changes\n");
+			goto out;
+		}
+	}
+
 	ret = 0;
 out:
 	faux_file_close(file);
