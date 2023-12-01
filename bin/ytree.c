@@ -18,6 +18,7 @@ int main(int argc, char **argv)
 	sr_session_ctx_t *sess = NULL;
 	faux_argv_t *args = faux_argv_new();
 	pline_t *pline = NULL;
+	pline_opts_t opts;
 
 	if (argc < 2)
 		return -1;
@@ -33,9 +34,11 @@ int main(int argc, char **argv)
 		goto out;
 	}
 
+	pline_opts_init(&opts);
+
 	faux_argv_parse(args, argv[1]);
 	faux_argv_del_continuable(args);
-	pline = pline_parse(sess, args, 0);
+	pline = pline_parse(sess, args, &opts);
 	faux_argv_free(args);
 	pline_debug(pline);
 	pline_print_completions(pline, BOOL_TRUE, PT_COMPL_ALL);
