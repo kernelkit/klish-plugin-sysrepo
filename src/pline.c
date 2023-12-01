@@ -1366,7 +1366,25 @@ void pline_print_completions(const pline_t *pline, bool_t help, pt_e enabled_typ
 }
 
 
-int pline_parse_conf(const char *conf, pline_opts_t *opts)
+void pline_opts_init(pline_opts_t *opts)
+{
+	opts->begin_bracket = '{';
+	opts->end_bracket = '}';
+	opts->show_brackets = BOOL_TRUE;
+	opts->show_semicolons = BOOL_TRUE;
+	opts->first_key_w_stmt = BOOL_FALSE;
+	opts->keys_w_stmt = BOOL_TRUE;
+	opts->colorize = BOOL_TRUE;
+	opts->indent = 2;
+	opts->default_keys = BOOL_FALSE;
+	opts->show_default_keys = BOOL_FALSE;
+	opts->hide_passwords = BOOL_TRUE;
+	opts->enable_nacm = BOOL_FALSE;
+	opts->oneliners = BOOL_TRUE;
+}
+
+
+int pline_opts_parse(const char *conf, pline_opts_t *opts)
 {
 	faux_ini_t *ini = NULL;
 	const char *val = NULL;

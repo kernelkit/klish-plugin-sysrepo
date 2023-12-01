@@ -127,20 +127,8 @@ int kplugin_sysrepo_init(kcontext_t *context)
 	udata->nacm_sub = NULL;
 
 	// Settings
-	udata->opts.begin_bracket = '{';
-	udata->opts.end_bracket = '}';
-	udata->opts.show_brackets = BOOL_TRUE;
-	udata->opts.show_semicolons = BOOL_TRUE;
-	udata->opts.first_key_w_stmt = BOOL_FALSE;
-	udata->opts.keys_w_stmt = BOOL_TRUE;
-	udata->opts.colorize = BOOL_TRUE;
-	udata->opts.indent = 2;
-	udata->opts.default_keys = BOOL_FALSE;
-	udata->opts.show_default_keys = BOOL_FALSE;
-	udata->opts.hide_passwords = BOOL_TRUE;
-	udata->opts.enable_nacm = BOOL_FALSE;
-	udata->opts.oneliners = BOOL_TRUE;
-	pline_parse_conf(kplugin_conf(plugin), &udata->opts);
+	pline_opts_init(&udata->opts);
+	pline_opts_parse(kplugin_conf(plugin), &udata->opts);
 
 	kplugin_set_udata(plugin, udata);
 
