@@ -534,7 +534,7 @@ int srp_set(kcontext_t *context)
 	faux_argv_free(args);
 
 	if (pline->invalid) {
-		fprintf(stderr, ERRORMSG "Invalid set request\n");
+		fprintf(stderr, ERRORMSG "Invalid set request.\n");
 		ret = -1;
 		goto cleanup;
 	}
@@ -549,8 +549,7 @@ int srp_set(kcontext_t *context)
 		if (sr_set_item_str(sess, expr->xpath, expr->value, NULL, 0) !=
 			SR_ERR_OK) {
 			err_num++;
-			srp_error(sess, ERRORMSG "Can't set data\n");
-			pline_debug(pline);
+			srp_error(sess, ERRORMSG "Failed setting data.\n");
 			break;
 		}
 	}
@@ -567,7 +566,7 @@ int srp_set(kcontext_t *context)
 
 	if (sr_apply_changes(sess, 0) != SR_ERR_OK) {
 		sr_discard_changes(sess);
-		srp_error(sess, ERRORMSG "Can't apply changes\n");
+		srp_error(sess, ERRORMSG "Failed applying changes.\n");
 		goto cleanup;
 	}
 
