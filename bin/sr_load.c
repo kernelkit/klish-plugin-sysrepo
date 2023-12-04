@@ -8,11 +8,32 @@
 
 #include <sysrepo.h>
 #include <sysrepo/xpath.h>
+#include <sysrepo/netconf_acm.h>
 
 #include "pline.h"
 
 
+int srp_mass_set(int fd, pline_opts_t *opts, const char *user, bool_t stop_on_error);
+
+
 int main(int argc, char **argv)
+{
+	int ret = -1;
+	pline_opts_t opts;
+	bool_t stop_on_error = BOOL_TRUE;
+	const char *user = "root";
+
+	pline_opts_init(&opts);
+	ret = srp_mass_set(STDIN_FILENO, &opts, user, stop_on_error);
+
+	argc = argc;
+	argv = argv;
+
+	return ret;
+}
+
+
+int srp_mass_set(int fd, pline_opts_t *opts, const char *user, bool_t stop_on_error)
 {
 	int ret = -1;
 	int err = SR_ERR_OK;
@@ -20,9 +41,8 @@ int main(int argc, char **argv)
 	sr_session_ctx_t *sess = NULL;
 	faux_file_t *file = NULL;
 	char *line = NULL;
-	pline_opts_t opts;
 	size_t err_num = 0;
-	bool_t stop_on_error = BOOL_TRUE;
+	sr_subscription_ctx_t *nacm_sub = NULL;
 
 	err = sr_connect(SR_CONN_DEFAULT, &conn);
 	if (err) {
@@ -35,13 +55,21 @@ int main(int argc, char **argv)
 		goto out;
 	}
 
-	file = faux_file_fdopen(STDIN_FILENO);
-	if (!file) {
-		fprintf(stderr, "Error: Can't open stdin\n");
-		goto out;
+	sr_session_set_orig_name(sess, user);
+	// Init NACM session
+	if (opts->enable_nacm) {
+		if (sr_nacm_init(sess, 0, &nacm_sub) != SR_ERR_OK) {
+			fprintf(stderr, "Error: Can't init NACM\n");
+			goto out;
+		}
+		sr_nacm_set_user(sess, user);
 	}
 
-	pline_opts_init(&opts);
+	file = faux_file_fdopen(fd);
+	if (!file) {
+		fprintf(stderr, "Error: Can't open input stream\n");
+		goto out;
+	}
 
 	while ((line = faux_file_getline(file))) {
 		pline_t *pline = NULL;
@@ -49,7 +77,7 @@ int main(int argc, char **argv)
 
 		args = faux_argv_new();
 		faux_argv_parse(args, line);
-		pline = pline_parse(sess, args, &opts);
+		pline = pline_parse(sess, args, opts);
 		faux_argv_free(args);
 		if (!pline || pline->invalid) {
 			err_num++;
@@ -92,10 +120,11 @@ int main(int argc, char **argv)
 	ret = 0;
 out:
 	faux_file_close(file);
+	if (opts->enable_nacm) {
+		sr_unsubscribe(nacm_sub);
+		sr_nacm_destroy();
+	}
 	sr_disconnect(conn);
-
-	argc = argc;
-	argv = argv;
 
 	return ret;
 }
