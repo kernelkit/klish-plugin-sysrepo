@@ -19,6 +19,9 @@ lib_LIBRARIES =
 nobase_include_HEADERS =
 noinst_HEADERS =
 
+include_klishdir = ${includedir}/klish
+include_klish_HEADERS =
+
 EXTRA_DIST = \
 	bin/Makefile.am \
 	src/Makefile.am \

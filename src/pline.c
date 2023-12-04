@@ -21,8 +21,7 @@
 #include <sysrepo/values.h>
 #include <libyang/tree_edit.h>
 
-#include "private.h"
-#include "pline.h"
+#include "klish_plugin_sysrepo.h"
 
 
 static int sr_ly_module_is_internal(const struct lys_module *ly_mod)

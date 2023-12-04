@@ -15,8 +15,7 @@
 #include <sysrepo/values.h>
 #include <libyang/tree_edit.h>
 
-#include "private.h"
-#include "pline.h"
+#include "klish_plugin_sysrepo.h"
 
 
 int klysc_key_compare(const void *first, const void *second)

@@ -7,9 +7,10 @@ libklish_plugin_sysrepo_la_CFLAGS = $(AM_CFLAGS)
 
 libklish_plugin_sysrepo_la_SOURCES += \
 	src/plugin.c \
-	src/private.h \
 	src/syms.c \
 	src/show.c \
-	src/pline.h \
 	src/pline.c \
 	src/kly.c
+
+include_klish_HEADERS += \
+	src/klish_plugin_sysrepo.h

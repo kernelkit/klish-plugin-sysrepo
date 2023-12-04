@@ -20,8 +20,7 @@
 #include <sysrepo/xpath.h>
 #include <sysrepo/values.h>
 
-#include "pline.h"
-#include "private.h"
+#include "klish_plugin_sysrepo.h"
 
 #define ERRORMSG "Error: "
 

@@ -16,7 +16,7 @@
 #include <klish/kplugin.h>
 #include <klish/kcontext.h>
 
-#include "private.h"
+#include "klish_plugin_sysrepo.h"
 
 
 const uint8_t kplugin_sysrepo_major = KPLUGIN_MAJOR;

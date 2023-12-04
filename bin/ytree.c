@@ -7,7 +7,7 @@
 #include <sysrepo.h>
 #include <sysrepo/xpath.h>
 
-#include "pline.h"
+#include "klish_plugin_sysrepo.h"
 
 
 int main(int argc, char **argv)
