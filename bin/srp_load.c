@@ -46,6 +46,7 @@ int main(int argc, char **argv)
 	int ret = -1;
 	pline_opts_t opts;
 	cmd_opts_t *cmd_opts = NULL;
+	int fd = STDIN_FILENO;
 
 	cmd_opts = cmd_opts_init();
 	if (cmd_opts_parse(argc, argv, cmd_opts) < 0) {
@@ -53,11 +54,21 @@ int main(int argc, char **argv)
 		goto out;
 	}
 
+	if (cmd_opts->file) {
+		fd = open(cmd_opts->file, O_RDONLY, 0);
+		if (fd < 0) {
+			fprintf(stderr, "Error: Can't open \"%s\"\n", cmd_opts->file);
+			goto out;
+		}
+	}
+
 	pline_opts_init(&opts);
-	ret = srp_mass_set(STDIN_FILENO, cmd_opts->datastore, &opts,
+	ret = srp_mass_set(fd, cmd_opts->datastore, &opts,
 		cmd_opts->user, cmd_opts->stop_on_error);
 
 out:
+	if (cmd_opts->file)
+		close(fd);
 	cmd_opts_free(cmd_opts);
 
 	return ret;
