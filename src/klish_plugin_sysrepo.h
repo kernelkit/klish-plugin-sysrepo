@@ -195,6 +195,9 @@ size_t num_of_keys(const struct lysc_node *node);
 C_DECL_END
 
 
+// Name of named klish's udata
+#define SRP_UDATA_NAME "sysrepo"
+
 // Plugin's user-data structure
 typedef struct {
 	faux_argv_t *path; // Current data hierarchy path ('edit' operation)
