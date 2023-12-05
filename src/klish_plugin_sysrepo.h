@@ -255,6 +255,10 @@ int srp_show(kcontext_t *context);
 int srp_diff(kcontext_t *context);
 int srp_deactivate(kcontext_t *context);
 
+// Service functions
+int srp_mass_set(int fd, sr_datastore_t ds, pline_opts_t *opts,
+	const char *user, bool_t stop_on_error);
+
 // Plugin's user-data service functions
 pline_opts_t *srp_udata_opts(kcontext_t *context);
 faux_argv_t *srp_udata_path(kcontext_t *context);
