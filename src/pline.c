@@ -1331,6 +1331,8 @@ void pline_print_completions(const pline_t *pline, bool_t help,
 
 		if (!node)
 			continue;
+		if (existing_nodes_only)
+			continue;
 
 		// Node
 		if (PCOMPL_NODE == pcompl->type) {
