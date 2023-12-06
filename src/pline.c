@@ -1384,21 +1384,14 @@ void pline_opts_init(pline_opts_t *opts)
 }
 
 
-int pline_opts_parse(const char *conf, pline_opts_t *opts)
+static int pline_opts_parse_ini(const faux_ini_t *ini, pline_opts_t *opts)
 {
-	faux_ini_t *ini = NULL;
 	const char *val = NULL;
 
 	if (!opts)
 		return -1;
-	if (!conf)
-		return 0; // Use defaults
-
-	ini = faux_ini_new();
-	if (!faux_ini_parse_str(ini, conf)) {
-		faux_ini_free(ini);
-		return -1;
-	}
+	if (!ini)
+		return 0; // Nothing to parse
 
 	if ((val = faux_ini_find(ini, "ShowBrackets"))) {
 		if (faux_str_cmp(val, "y") == 0)
@@ -1476,7 +1469,49 @@ int pline_opts_parse(const char *conf, pline_opts_t *opts)
 			opts->oneliners = BOOL_FALSE;
 	}
 
+	return 0;
+}
+
+
+int pline_opts_parse(const char *conf, pline_opts_t *opts)
+{
+	faux_ini_t *ini = NULL;
+	int rc = -1;
+
+	if (!opts)
+		return -1;
+	if (!conf)
+		return 0; // Use defaults
+
+	ini = faux_ini_new();
+	if (!faux_ini_parse_str(ini, conf)) {
+		faux_ini_free(ini);
+		return -1;
+	}
+	rc = pline_opts_parse_ini(ini, opts);
 	faux_ini_free(ini);
 
-	return 0;
+	return rc;
+}
+
+
+int pline_opts_parse_file(const char *conf_name, pline_opts_t *opts)
+{
+	faux_ini_t *ini = NULL;
+	int rc = -1;
+
+	if (!opts)
+		return -1;
+	if (!conf_name)
+		return 0; // Use defaults
+
+	ini = faux_ini_new();
+	if (!faux_ini_parse_file(ini, conf_name)) {
+		faux_ini_free(ini);
+		return -1;
+	}
+	rc = pline_opts_parse_ini(ini, opts);
+	faux_ini_free(ini);
+
+	return rc;
 }

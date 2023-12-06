@@ -46,12 +46,14 @@ int main(int argc, char **argv)
 	int fd = STDIN_FILENO;
 	faux_argv_t *cur_path = NULL;
 
+	// Command line options parsing
 	cmd_opts = cmd_opts_init();
 	if (cmd_opts_parse(argc, argv, cmd_opts) < 0) {
 		fprintf(stderr, "Error: Illegal command line options\n");
 		goto out;
 	}
 
+	// Open input file
 	if (cmd_opts->file) {
 		fd = open(cmd_opts->file, O_RDONLY, 0);
 		if (fd < 0) {
@@ -59,7 +61,13 @@ int main(int argc, char **argv)
 			goto out;
 		}
 	}
+
+	// Get pline options
 	pline_opts_init(&opts);
+	if (cmd_opts->cfg)
+		pline_opts_parse_file(cmd_opts->cfg, &opts);
+
+	// Prepare argv structure for current sysrepo path
 	if (cmd_opts->current_path) {
 		cur_path = faux_argv_new();
 		faux_argv_parse(cur_path, cmd_opts->current_path);

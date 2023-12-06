@@ -182,6 +182,7 @@ C_DECL_BEGIN
 pline_t *pline_new(sr_session_ctx_t *sess);
 void pline_opts_init(pline_opts_t *opts);
 int pline_opts_parse(const char *conf, pline_opts_t *opts);
+int pline_opts_parse_file(const char *conf_name, pline_opts_t *opts);
 pline_t *pline_parse(sr_session_ctx_t *sess, const faux_argv_t *argv,
 	const pline_opts_t *opts);
 pexpr_t *pline_current_expr(pline_t *pline);
