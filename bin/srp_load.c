@@ -114,7 +114,7 @@ static void cmd_opts_free(cmd_opts_t *opts)
 
 static int cmd_opts_parse(int argc, char *argv[], cmd_opts_t *opts)
 {
-	static const char *shortopts = "hf:veu:d:";
+	static const char *shortopts = "hf:veu:d:p:";
 	static const struct option longopts[] = {
 		{"conf",		1, NULL, 'f'},
 		{"help",		0, NULL, 'h'},
