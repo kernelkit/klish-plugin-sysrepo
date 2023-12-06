@@ -1291,7 +1291,8 @@ static void pline_print_type_help(const struct lysc_node *node,
 }
 
 
-void pline_print_completions(const pline_t *pline, bool_t help, pt_e enabled_types)
+void pline_print_completions(const pline_t *pline, bool_t help,
+	pt_e enabled_types, bool_t existing_nodes_only)
 {
 	faux_list_node_t *iter = NULL;
 	pcompl_t *pcompl = NULL;

@@ -190,7 +190,8 @@ pexpr_t *pline_current_expr(pline_t *pline);
 void pline_free(pline_t *pline);
 
 void pline_debug(pline_t *pline);
-void pline_print_completions(const pline_t *pline, bool_t help, pt_e enabled_types);
+void pline_print_completions(const pline_t *pline, bool_t help,
+	pt_e enabled_types, bool_t existing_nodes_only);
 
 size_t num_of_keys(const struct lysc_node *node);
 

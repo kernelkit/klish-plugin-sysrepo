@@ -41,7 +41,7 @@ int main(int argc, char **argv)
 	pline = pline_parse(sess, args, &opts);
 	faux_argv_free(args);
 	pline_debug(pline);
-	pline_print_completions(pline, BOOL_TRUE, PT_COMPL_ALL);
+	pline_print_completions(pline, BOOL_TRUE, PT_COMPL_ALL, BOOL_FALSE);
 	pline_free(pline);
 
 	ret = 0;
