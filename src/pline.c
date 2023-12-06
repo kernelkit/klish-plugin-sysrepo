@@ -502,8 +502,8 @@ static void pline_add_compl_leaf(pline_t *pline, const struct lysc_node *node,
 }
 
 
-static bool_t pline_parse_module(const struct lys_module *module, faux_argv_t *argv,
-	pline_t *pline, pline_opts_t *opts)
+static bool_t pline_parse_module(const struct lys_module *module,
+	const faux_argv_t *argv, pline_t *pline, const pline_opts_t *opts)
 {
 	faux_argv_node_t *arg = faux_argv_iter(argv);
 	const struct lysc_node *node = NULL;
@@ -866,7 +866,8 @@ static bool_t pline_parse_module(const struct lys_module *module, faux_argv_t *a
 }
 
 
-pline_t *pline_parse(sr_session_ctx_t *sess, faux_argv_t *argv, pline_opts_t *opts)
+pline_t *pline_parse(sr_session_ctx_t *sess, const faux_argv_t *argv,
+	const pline_opts_t *opts)
 {
 	const struct ly_ctx *ctx = NULL;
 	struct lys_module *module = NULL;

@@ -21,10 +21,11 @@
 #define DEFAULT_DATASTORE SR_DS_CANDIDATE
 
 typedef struct cmd_opts_s {
+	char *cfg; // Configuration options
+	char *file; // File to load
+	char *user; // NACM user
+	char *current_path; // Current sysrepo path
 	bool_t verbose;
-	char *cfg;
-	char *file;
-	char *user;
 	bool_t stop_on_error;
 	sr_datastore_t datastore;
 } cmd_opts_t;
@@ -43,6 +44,7 @@ int main(int argc, char **argv)
 	pline_opts_t opts;
 	cmd_opts_t *cmd_opts = NULL;
 	int fd = STDIN_FILENO;
+	faux_argv_t *cur_path = NULL;
 
 	cmd_opts = cmd_opts_init();
 	if (cmd_opts_parse(argc, argv, cmd_opts) < 0) {
@@ -57,12 +59,18 @@ int main(int argc, char **argv)
 			goto out;
 		}
 	}
-
 	pline_opts_init(&opts);
-	ret = srp_mass_set(fd, cmd_opts->datastore, &opts,
-		cmd_opts->user, cmd_opts->stop_on_error);
+	if (cmd_opts->current_path) {
+		cur_path = faux_argv_new();
+		faux_argv_parse(cur_path, cmd_opts->current_path);
+	}
+
+	ret = srp_mass_set(fd, cmd_opts->datastore, cur_path,
+		&opts, cmd_opts->user, cmd_opts->stop_on_error);
 
 out:
+	if (cur_path)
+		faux_argv_free(cur_path);
 	if (cmd_opts->file)
 		close(fd);
 	cmd_opts_free(cmd_opts);
@@ -85,6 +93,7 @@ static cmd_opts_t *cmd_opts_init(void)
 	opts->file = NULL;
 	opts->user = NULL;
 	opts->datastore = DEFAULT_DATASTORE;
+	opts->current_path = NULL;
 
 	return opts;
 }
@@ -97,6 +106,7 @@ static void cmd_opts_free(cmd_opts_t *opts)
 	faux_str_free(opts->cfg);
 	faux_str_free(opts->file);
 	faux_str_free(opts->user);
+	faux_str_free(opts->current_path);
 
 	faux_free(opts);
 }
@@ -112,6 +122,7 @@ static int cmd_opts_parse(int argc, char *argv[], cmd_opts_t *opts)
 		{"user",		1, NULL, 'u'},
 		{"stop-on-error",	0, NULL, 'e'},
 		{"datastore",		1, NULL, 'd'},
+		{"current-path",	1, NULL, 'p'},
 		{NULL,			0, NULL, 0}
 	};
 
@@ -144,6 +155,10 @@ static int cmd_opts_parse(int argc, char *argv[], cmd_opts_t *opts)
 		case 'd':
 			if (!kly_str2ds(optarg, strlen(optarg), &opts->datastore))
 				return BOOL_FALSE;
+			break;
+		case 'p':
+			faux_str_free(opts->current_path);
+			opts->current_path = faux_str_dup(optarg);
 			break;
 		default:
 			help(-1, argv[0]);
@@ -194,5 +209,6 @@ static void help(int status, const char *argv0)
 		printf("\t-u <name>, --user=<name> NACM user.\n");
 		printf("\t-f <path>, --conf=<path> Config file.\n");
 		printf("\t-d <ds>, --datastore=<ds> Datastore.\n");
+		printf("\t-p <sr-path>, --current-path=<sr-path> Current sysrepo path.\n");
 	}
 }

@@ -1187,8 +1187,8 @@ int srp_compl_xpath(kcontext_t *context)
 // Function for mass config strings load. It can load stream of KPath strings
 // (without "set" command, only path and value). Function doesn't use
 // pre-connected session because it can be executed within FILTER or utility.
-int srp_mass_set(int fd, sr_datastore_t ds, pline_opts_t *opts,
-	const char *user, bool_t stop_on_error)
+int srp_mass_set(int fd, sr_datastore_t ds, const faux_argv_t *cur_path,
+	const pline_opts_t *opts, const char *user, bool_t stop_on_error)
 {
 	int ret = -1;
 	int err = SR_ERR_OK;
@@ -1230,7 +1230,10 @@ int srp_mass_set(int fd, sr_datastore_t ds, pline_opts_t *opts,
 		pline_t *pline = NULL;
 		faux_argv_t *args = NULL;
 
-		args = faux_argv_new();
+		if (cur_path)
+			args = faux_argv_dup(cur_path);
+		else
+			args = faux_argv_new();
 		faux_argv_parse(args, line);
 		pline = pline_parse(sess, args, opts);
 		faux_argv_free(args);

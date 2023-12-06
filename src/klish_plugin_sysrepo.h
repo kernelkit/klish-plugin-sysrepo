@@ -182,7 +182,8 @@ C_DECL_BEGIN
 pline_t *pline_new(sr_session_ctx_t *sess);
 void pline_opts_init(pline_opts_t *opts);
 int pline_opts_parse(const char *conf, pline_opts_t *opts);
-pline_t *pline_parse(sr_session_ctx_t *sess, faux_argv_t *argv, pline_opts_t *opts);
+pline_t *pline_parse(sr_session_ctx_t *sess, const faux_argv_t *argv,
+	const pline_opts_t *opts);
 pexpr_t *pline_current_expr(pline_t *pline);
 
 void pline_free(pline_t *pline);
@@ -256,8 +257,8 @@ int srp_diff(kcontext_t *context);
 int srp_deactivate(kcontext_t *context);
 
 // Service functions
-int srp_mass_set(int fd, sr_datastore_t ds, pline_opts_t *opts,
-	const char *user, bool_t stop_on_error);
+int srp_mass_set(int fd, sr_datastore_t ds, const faux_argv_t *cur_path,
+	const pline_opts_t *opts, const char *user, bool_t stop_on_error);
 
 // Plugin's user-data service functions
 pline_opts_t *srp_udata_opts(kcontext_t *context);
