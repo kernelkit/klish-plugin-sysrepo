@@ -211,12 +211,12 @@ static void help(int status, const char *argv0)
 		printf("Usage   : %s [options] [filename]\n", name);
 		printf("Load mass of config strings to Sysrepo repository\n");
 		printf("Options :\n");
-		printf("\t-h, --help Print this help.\n");
-		printf("\t-v, --verbose Be verbose.\n");
-		printf("\t-e, --stop-on-error Stop script execution on error.\n");
-		printf("\t-u <name>, --user=<name> NACM user.\n");
-		printf("\t-f <path>, --conf=<path> Config file.\n");
-		printf("\t-d <ds>, --datastore=<ds> Datastore.\n");
-		printf("\t-p <sr-path>, --current-path=<sr-path> Current sysrepo path.\n");
+		printf("\t-h, --help Print this help\n");
+		printf("\t-v, --verbose Be verbose\n");
+		printf("\t-e, --stop-on-error Stop script execution on error\n");
+		printf("\t-u <name>, --user=<name> NACM user name\n");
+		printf("\t-f <path>, --conf=<path> Config file with parsing settings\n");
+		printf("\t-d <ds>, --datastore=<ds> Datastore (Default is 'candidate'\n");
+		printf("\t-p <sr-path>, --current-path=<sr-path> Current sysrepo path\n");
 	}
 }
