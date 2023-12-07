@@ -8,6 +8,7 @@
 #include <faux/file.h>
 #include <faux/argv.h>
 
+#include <libyang/log.h>
 #include <sysrepo.h>
 #include <sysrepo/xpath.h>
 
@@ -66,6 +67,10 @@ int main(int argc, char **argv)
 	pline_opts_init(&opts);
 	if (cmd_opts->cfg)
 		pline_opts_parse_file(cmd_opts->cfg, &opts);
+
+	// Turn off libyang warnings
+	ly_log_level(LY_LLERR);
+	ly_log_options(LY_LOSTORE);
 
 	// Prepare argv structure for current sysrepo path
 	if (cmd_opts->current_path) {
