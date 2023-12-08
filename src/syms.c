@@ -1230,10 +1230,18 @@ int srp_mass_set(int fd, sr_datastore_t ds, const faux_argv_t *cur_path,
 		pline_t *pline = NULL;
 		faux_argv_t *args = NULL;
 
+		// Don't process empty strings and strings with only spaces
+		if (!faux_str_has_content(line)) {
+			faux_str_free(line);
+			continue;
+		}
+
+		// Add current sysrepo path
 		if (cur_path)
 			args = faux_argv_dup(cur_path);
 		else
 			args = faux_argv_new();
+
 		faux_argv_parse(args, line);
 		pline = pline_parse(sess, args, opts);
 		faux_argv_free(args);
