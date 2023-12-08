@@ -239,7 +239,7 @@ static void pline_add_compl(pline_t *pline,
 
 
 static void pline_add_compl_subtree(pline_t *pline, const struct lys_module *module,
-	const struct lysc_node *node)
+	const struct lysc_node *node, const char *xpath)
 {
 	const struct lysc_node *subtree = NULL;
 	const struct lysc_node *iter = NULL;
@@ -253,6 +253,7 @@ static void pline_add_compl_subtree(pline_t *pline, const struct lys_module *mod
 
 	LY_LIST_FOR(subtree, iter) {
 		pat_e pat = PAT_NONE;
+		char *node_xpath = NULL;
 
 		if (!(iter->nodetype & SRP_NODETYPE_CONF))
 			continue;
@@ -261,7 +262,7 @@ static void pline_add_compl_subtree(pline_t *pline, const struct lys_module *mod
 		if ((iter->nodetype & LYS_LEAF) && (iter->flags & LYS_KEY))
 			continue;
 		if (iter->nodetype & (LYS_CHOICE | LYS_CASE)) {
-			pline_add_compl_subtree(pline, module, iter);
+			pline_add_compl_subtree(pline, module, iter, xpath);
 			continue;
 		}
 		switch(iter->nodetype) {
@@ -282,7 +283,11 @@ static void pline_add_compl_subtree(pline_t *pline, const struct lys_module *mod
 			break;
 		}
 
-		pline_add_compl(pline, PCOMPL_NODE, iter, NULL, SRP_REPO_EDIT, pat);
+		node_xpath = faux_str_sprintf("%s/%s:%s", xpath ? xpath : "",
+			iter->module->name, iter->name);
+		pline_add_compl(pline, PCOMPL_NODE, iter, node_xpath,
+			SRP_REPO_EDIT, pat);
+		faux_str_free(node_xpath);
 	}
 }
 
@@ -551,7 +556,7 @@ static bool_t pline_parse_module(const struct lys_module *module,
 
 			// Completion
 			if (!str) {
-				pline_add_compl_subtree(pline, module, node);
+				pline_add_compl_subtree(pline, module, node, pexpr->xpath);
 				break;
 			}
 
@@ -567,7 +572,7 @@ static bool_t pline_parse_module(const struct lys_module *module,
 
 			// Completion
 			if (!str) {
-				pline_add_compl_subtree(pline, module, node);
+				pline_add_compl_subtree(pline, module, node, pexpr->xpath);
 				break;
 			}
 
@@ -730,7 +735,7 @@ static bool_t pline_parse_module(const struct lys_module *module,
 
  			// Completion
 			if (!str) {
-				pline_add_compl_subtree(pline, module, node);
+				pline_add_compl_subtree(pline, module, node, pexpr->xpath);
 				break;
 			}
 
@@ -750,7 +755,7 @@ static bool_t pline_parse_module(const struct lys_module *module,
 				// Completion
 				if (!str) {
 					pline_add_compl_subtree(pline,
-						module, node->parent);
+						module, node->parent, pexpr->xpath);
 					break;
 				}
 				// Don't get next argument when argument is not
@@ -832,7 +837,7 @@ static bool_t pline_parse_module(const struct lys_module *module,
 
 			// Completion
 			if (!str) {
-				pline_add_compl_subtree(pline, module, node);
+				pline_add_compl_subtree(pline, module, node, pexpr->xpath);
 				break;
 			}
 
@@ -1311,22 +1316,37 @@ void pline_print_completions(const pline_t *pline, bool_t help,
 			size_t val_num = 0;
 			size_t i = 0;
 
-//printf("%s\n", pcompl->xpath);
 			// Switch to necessary DS
 			if (current_ds != pcompl->xpath_ds) {
 				sr_session_switch_ds(pline->sess, pcompl->xpath_ds);
 				current_ds = pcompl->xpath_ds;
 			}
-			sr_get_items(pline->sess, pcompl->xpath,
-				0, 0, &vals, &val_num);
-			for (i = 0; i < val_num; i++) {
-				char *tmp = sr_val_to_str(&vals[i]);
-				if (!tmp)
-					continue;
-				printf("%s\n", tmp);
-				free(tmp);
+
+			if (PCOMPL_TYPE == pcompl->type) {
+				sr_get_items(pline->sess, pcompl->xpath,
+					0, 0, &vals, &val_num);
+				for (i = 0; i < val_num; i++) {
+					char *tmp = sr_val_to_str(&vals[i]);
+					if (!tmp)
+						continue;
+					printf("%s\n", tmp);
+					free(tmp);
+				}
+				sr_free_values(vals, val_num);
+			} else if (existing_nodes_only) {
+				bool_t dflt = BOOL_TRUE;
+				sr_get_items(pline->sess, pcompl->xpath,
+					0, 0, &vals, &val_num);
+				for (i = 0; i < val_num; i++) {
+					if (!vals[i].dflt) {
+						dflt = BOOL_FALSE;
+						break;
+					}
+				}
+				if (!dflt)
+					printf("%s\n", node->name);
+				sr_free_values(vals, val_num);
 			}
-			sr_free_values(vals, val_num);
 		}
 
 		if (!node)
