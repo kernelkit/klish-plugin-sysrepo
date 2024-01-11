@@ -64,6 +64,7 @@ typedef enum {
 	PT_DEL =
 		PAT_CONTAINER |
 		PAT_LIST_KEY |
+		PAT_LIST_KEY_INCOMPLETED |
 		PAT_LEAF |
 		PAT_LEAF_EMPTY |
 		PAT_LEAFLIST |
@@ -289,6 +290,10 @@ int srp_deactivate(kcontext_t *context);
 
 // Service functions
 int srp_mass_set(int fd, sr_datastore_t ds, const faux_argv_t *cur_path,
+	const pline_opts_t *opts, const char *user, bool_t stop_on_error);
+int srp_mass_del(int fd, sr_datastore_t ds, const faux_argv_t *cur_path,
+	const pline_opts_t *opts, const char *user, bool_t stop_on_error);
+int srp_mass_op(char op, int fd, sr_datastore_t ds, const faux_argv_t *cur_path,
 	const pline_opts_t *opts, const char *user, bool_t stop_on_error);
 
 // Plugin's user-data service functions

@@ -1220,10 +1220,8 @@ int srp_compl_xpath(kcontext_t *context)
 }
 
 
-// Function for mass config strings load. It can load stream of KPath strings
-// (without "set" command, only path and value). Function doesn't use
-// pre-connected session because it can be executed within FILTER or utility.
-int srp_mass_set(int fd, sr_datastore_t ds, const faux_argv_t *cur_path,
+// Function for mass operations.
+int srp_mass_op(char op, int fd, sr_datastore_t ds, const faux_argv_t *cur_path,
 	const pline_opts_t *opts, const char *user, bool_t stop_on_error)
 {
 	int ret = -1;
@@ -1290,15 +1288,38 @@ int srp_mass_set(int fd, sr_datastore_t ds, const faux_argv_t *cur_path,
 
 			iter = faux_list_head(pline->exprs);
 			while ((expr = (pexpr_t *)faux_list_each(&iter))) {
-				if (!(expr->pat & PT_SET)) {
+				// Set
+				if (op == 's') {
+					if (!(expr->pat & PT_SET)) {
+						err_num++;
+						fprintf(stderr, "Error: Illegal expression"
+							" for set operation\n");
+						break;
+					}
+					if (sr_set_item_str(sess, expr->xpath,
+						expr->value, NULL, 0) != SR_ERR_OK) {
+						err_num++;
+						fprintf(stderr, "Error: Can't set data\n");
+						break;
+					}
+				// Del
+				} else if (op == 'd') {
+					if (!(expr->pat & PT_DEL)) {
+						err_num++;
+						fprintf(stderr, "Error: Illegal expression"
+							" for del operation\n");
+						break;
+					}
+					if (sr_delete_item(sess, expr->xpath, 0) !=
+						SR_ERR_OK) {
+						err_num++;
+						fprintf(stderr, "Error: Can't del data\n");
+						break;
+					}
+				} else {
 					err_num++;
-					fprintf(stderr, "Error: Illegal expression for set operation\n");
-					break;
-				}
-				if (sr_set_item_str(sess, expr->xpath, expr->value, NULL, 0) !=
-					SR_ERR_OK) {
-					err_num++;
-					fprintf(stderr, "Error: Can't set data\n");
+					fprintf(stderr, "Error: Illegal operation '%c'\n",
+						op);
 					break;
 				}
 			}
@@ -1329,4 +1350,24 @@ out:
 	sr_disconnect(conn);
 
 	return ret;
+}
+
+
+// Function for mass config strings load. It can load stream of KPath strings
+// (without "set" command, only path and value). Function doesn't use
+// pre-connected session because it can be executed within FILTER or utility.
+int srp_mass_set(int fd, sr_datastore_t ds, const faux_argv_t *cur_path,
+	const pline_opts_t *opts, const char *user, bool_t stop_on_error)
+{
+	return srp_mass_op('s', fd, ds, cur_path, opts, user, stop_on_error);
+}
+
+
+// Function for mass config strings deletion. It can get stream of KPath strings
+// (without "del" command, only path). Function doesn't use
+// pre-connected session because it can be executed within FILTER or utility.
+int srp_mass_del(int fd, sr_datastore_t ds, const faux_argv_t *cur_path,
+	const pline_opts_t *opts, const char *user, bool_t stop_on_error)
+{
+	return srp_mass_op('d', fd, ds, cur_path, opts, user, stop_on_error);
 }
