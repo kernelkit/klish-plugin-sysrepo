@@ -195,6 +195,30 @@ int srp_help_insert(kcontext_t *context)
 }
 
 
+int srp_compl_show(kcontext_t *context)
+{
+	return srp_compl_or_help(context, BOOL_FALSE, PT_COMPL_SHOW, BOOL_TRUE, BOOL_TRUE);
+}
+
+
+int srp_compl_show_abs(kcontext_t *context)
+{
+	return srp_compl_or_help(context, BOOL_FALSE, PT_COMPL_SHOW, BOOL_FALSE, BOOL_TRUE);
+}
+
+
+int srp_help_show(kcontext_t *context)
+{
+	return srp_compl_or_help(context, BOOL_TRUE, PT_COMPL_SHOW, BOOL_TRUE, BOOL_TRUE);
+}
+
+
+int srp_help_show_abs(kcontext_t *context)
+{
+	return srp_compl_or_help(context, BOOL_TRUE, PT_COMPL_SHOW, BOOL_FALSE, BOOL_TRUE);
+}
+
+
 int srp_prompt_edit_path(kcontext_t *context)
 {
 	faux_argv_t *cur_path = NULL;
@@ -286,6 +310,18 @@ int srp_PLINE_EDIT_ABS(kcontext_t *context)
 int srp_PLINE_INSERT_FROM(kcontext_t *context)
 {
 	return srp_check_type(context, PT_NOT_INSERT, 1, BOOL_TRUE);
+}
+
+
+int srp_PLINE_SHOW(kcontext_t *context)
+{
+	return srp_check_type(context, PT_NOT_SHOW, 1, BOOL_TRUE);
+}
+
+
+int srp_PLINE_SHOW_ABS(kcontext_t *context)
+{
+	return srp_check_type(context, PT_NOT_SHOW, 1, BOOL_FALSE);
 }
 
 
@@ -920,7 +956,7 @@ static int show(kcontext_t *context, sr_datastore_t ds,
 			fprintf(stderr, ERRORMSG "Can't get expression\n");
 			goto err;
 		}
-		if (!(expr->pat & PT_EDIT)) {
+		if (!(expr->pat & PT_SHOW)) {
 			fprintf(stderr, ERRORMSG "Illegal expression for 'show' operation\n");
 			goto err;
 		}

@@ -79,6 +79,26 @@
 	<ACTION sym="PLINE_INSERT_TO@sysrepo"/>
 </PTYPE>
 
+<PTYPE name="PLINE_SHOW">
+	<COMPL>
+		<ACTION sym="srp_compl_show@sysrepo"/>
+	</COMPL>
+	<HELP>
+		<ACTION sym="srp_help_show@sysrepo"/>
+	</HELP>
+	<ACTION sym="PLINE_SHOW@sysrepo"/>
+</PTYPE>
+
+<PTYPE name="PLINE_SHOW_ABS">
+	<COMPL>
+		<ACTION sym="srp_compl_show_abs@sysrepo"/>
+	</COMPL>
+	<HELP>
+		<ACTION sym="srp_help_show_abs@sysrepo"/>
+	</HELP>
+	<ACTION sym="PLINE_SHOW_ABS@sysrepo"/>
+</PTYPE>
+
 
 <VIEW name="main">
 
@@ -88,7 +108,7 @@
 
 	<COMMAND name="show" help="Show" mode="switch">
 		<COMMAND name="running" help="Show running-config">
-			<PARAM name="path" ptype="/PLINE_EDIT_ABS" min="0" max="100"/>
+			<PARAM name="path" ptype="/PLINE_SHOW_ABS" min="0" max="100"/>
 			<ACTION sym="srp_show_abs@sysrepo">running</ACTION>
 		</COMMAND>
 	</COMMAND>
@@ -168,7 +188,7 @@
 	</COMMAND>
 
 	<COMMAND name="show" help="Show data hierarchy">
-		<PARAM name="path" ptype="/PLINE_EDIT" min="0" max="100"/>
+		<PARAM name="path" ptype="/PLINE_SHOW" min="0" max="100"/>
 		<ACTION sym="srp_show@sysrepo"/>
 	</COMMAND>
 
