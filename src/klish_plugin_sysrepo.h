@@ -126,6 +126,7 @@ typedef struct {
 	size_t args_num;
 	size_t list_pos;
 	char *last_keys;
+	size_t tree_depth;
 } pexpr_t;
 
 

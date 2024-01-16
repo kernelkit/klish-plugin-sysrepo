@@ -190,7 +190,7 @@ void pline_free(pline_t *pline)
 
 
 static pexpr_t *pline_add_expr(pline_t *pline, const char *xpath,
-	size_t args_num, size_t list_pos)
+	size_t args_num, size_t list_pos, size_t tree_depth)
 {
 	pexpr_t *pexpr = NULL;
 
@@ -201,6 +201,7 @@ static pexpr_t *pline_add_expr(pline_t *pline, const char *xpath,
 		pexpr->xpath = faux_str_dup(xpath);
 	pexpr->args_num = args_num;
 	pexpr->list_pos = list_pos;
+	pexpr->tree_depth = tree_depth;
 	faux_list_add(pline->exprs, pexpr);
 
 	return pexpr;
@@ -212,7 +213,7 @@ pexpr_t *pline_current_expr(pline_t *pline)
 	assert(pline);
 
 	if (faux_list_len(pline->exprs) == 0)
-		pline_add_expr(pline, NULL, 0, 0);
+		pline_add_expr(pline, NULL, 0, 0, 0);
 
 	return (pexpr_t *)faux_list_data(faux_list_tail(pline->exprs));
 }
@@ -386,6 +387,7 @@ static bool_t pexpr_xpath_add_node(pexpr_t *pexpr,
 	faux_str_cat(&pexpr->xpath, tmp);
 	faux_str_free(tmp);
 	pexpr->args_num++;
+	pexpr->tree_depth++;
 	// Activate current expression. Because it really has
 	// new component
 	pexpr->active = BOOL_TRUE;
@@ -515,6 +517,7 @@ static bool_t pline_parse_module(const struct lys_module *module,
 	char *rollback_xpath = NULL;
 	size_t rollback_args_num = 0;
 	size_t rollback_list_pos = 0;
+	size_t rollback_tree_depth = 0;
 	// Rollback is a mechanism to roll to previous node while
 	// oneliners parsing
 	bool_t rollback = BOOL_FALSE;
@@ -544,6 +547,7 @@ static bool_t pline_parse_module(const struct lys_module *module,
 				rollback_xpath = faux_str_dup(pexpr->xpath);
 				rollback_args_num = pexpr->args_num;
 				rollback_list_pos = pexpr->list_pos;
+				rollback_tree_depth = pexpr->tree_depth;
 			}
 
 			// Add current node to Xpath
@@ -790,7 +794,8 @@ static bool_t pline_parse_module(const struct lys_module *module,
 			// So rollback (for oneliners)
 			node = node->parent;
 			pline_add_expr(pline, rollback_xpath,
-				rollback_args_num, rollback_list_pos);
+				rollback_args_num, rollback_list_pos,
+				rollback_tree_depth);
 			rollback = BOOL_TRUE;
 
 		// Leaf-list
@@ -826,7 +831,8 @@ static bool_t pline_parse_module(const struct lys_module *module,
 			// So rollback (for oneliners)
 			node = node->parent;
 			pline_add_expr(pline, rollback_xpath,
-				rollback_args_num, rollback_list_pos);
+				rollback_args_num, rollback_list_pos,
+				rollback_tree_depth);
 			rollback = BOOL_TRUE;
 
 		// LYS_CHOICE and LYS_CASE can appear while rollback only
