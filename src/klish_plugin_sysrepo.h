@@ -64,6 +64,7 @@ typedef enum {
 	PT_DEL =
 		PAT_CONTAINER |
 		PAT_LIST_KEY |
+		PAT_LIST_KEY_INCOMPLETED |
 		PAT_LEAF |
 		PAT_LEAF_EMPTY |
 		PAT_LEAFLIST |
@@ -111,6 +112,29 @@ typedef enum {
 		PAT_LIST |
 		PAT_LIST_KEY |
 		PAT_LIST_KEY_INCOMPLETED |
+		PAT_LEAFLIST |
+		PAT_LEAFLIST_VALUE,
+
+	PT_SHOW =
+		PAT_CONTAINER |
+		PAT_LIST |
+		PAT_LIST_KEY |
+		PAT_LIST_KEY_INCOMPLETED |
+		PAT_LEAF |
+		PAT_LEAF_EMPTY |
+		PAT_LEAFLIST |
+		PAT_LEAFLIST_VALUE,
+
+	PT_NOT_SHOW =
+		PAT_LEAF_VALUE,
+
+	PT_COMPL_SHOW =
+		PAT_CONTAINER |
+		PAT_LIST |
+		PAT_LIST_KEY |
+		PAT_LIST_KEY_INCOMPLETED |
+		PAT_LEAF |
+		PAT_LEAF_EMPTY |
 		PAT_LEAFLIST |
 		PAT_LEAFLIST_VALUE,
 
@@ -225,6 +249,8 @@ int srp_PLINE_EDIT(kcontext_t *context);
 int srp_PLINE_EDIT_ABS(kcontext_t *context);
 int srp_PLINE_INSERT_FROM(kcontext_t *context);
 int srp_PLINE_INSERT_TO(kcontext_t *context);
+int srp_PLINE_SHOW(kcontext_t *context);
+int srp_PLINE_SHOW_ABS(kcontext_t *context);
 
 // Completion/Help/Prompt
 int srp_compl(kcontext_t *context);
@@ -243,6 +269,10 @@ int srp_compl_insert_to(kcontext_t *context);
 int srp_help_insert_to(kcontext_t *context);
 int srp_prompt_edit_path(kcontext_t *context);
 int srp_compl_xpath(kcontext_t *context);
+int srp_compl_show(kcontext_t *context);
+int srp_compl_show_abs(kcontext_t *context);
+int srp_help_show(kcontext_t *context);
+int srp_help_show_abs(kcontext_t *context);
 
 // Operations
 int srp_set(kcontext_t *context);
@@ -261,6 +291,10 @@ int srp_deactivate(kcontext_t *context);
 
 // Service functions
 int srp_mass_set(int fd, sr_datastore_t ds, const faux_argv_t *cur_path,
+	const pline_opts_t *opts, const char *user, bool_t stop_on_error);
+int srp_mass_del(int fd, sr_datastore_t ds, const faux_argv_t *cur_path,
+	const pline_opts_t *opts, const char *user, bool_t stop_on_error);
+int srp_mass_op(char op, int fd, sr_datastore_t ds, const faux_argv_t *cur_path,
 	const pline_opts_t *opts, const char *user, bool_t stop_on_error);
 
 // Plugin's user-data service functions

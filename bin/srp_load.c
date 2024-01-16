@@ -20,12 +20,14 @@
 
 #define DEFAULT_USER "root"
 #define DEFAULT_DATASTORE SR_DS_CANDIDATE
+#define DEFAULT_OP 's'
 
 typedef struct cmd_opts_s {
 	char *cfg; // Configuration options
 	char *file; // File to load
 	char *user; // NACM user
 	char *current_path; // Current sysrepo path
+	char op; // Operation to execute 's'(set)/'d'(del)
 	bool_t verbose;
 	bool_t stop_on_error;
 	sr_datastore_t datastore;
@@ -78,7 +80,7 @@ int main(int argc, char **argv)
 		faux_argv_parse(cur_path, cmd_opts->current_path);
 	}
 
-	ret = srp_mass_set(fd, cmd_opts->datastore, cur_path,
+	ret = srp_mass_op(cmd_opts->op, fd, cmd_opts->datastore, cur_path,
 		&opts, cmd_opts->user, cmd_opts->stop_on_error);
 
 out:
@@ -104,7 +106,8 @@ static cmd_opts_t *cmd_opts_init(void)
 	opts->stop_on_error = BOOL_FALSE;
 	opts->cfg = NULL;
 	opts->file = NULL;
-	opts->user = NULL;
+	opts->user = faux_str_dup(DEFAULT_USER);
+	opts->op = DEFAULT_OP;
 	opts->datastore = DEFAULT_DATASTORE;
 	opts->current_path = NULL;
 
@@ -127,7 +130,7 @@ static void cmd_opts_free(cmd_opts_t *opts)
 
 static int cmd_opts_parse(int argc, char *argv[], cmd_opts_t *opts)
 {
-	static const char *shortopts = "hf:veu:d:p:";
+	static const char *shortopts = "hf:veu:d:p:o:";
 	static const struct option longopts[] = {
 		{"conf",		1, NULL, 'f'},
 		{"help",		0, NULL, 'h'},
@@ -136,6 +139,7 @@ static int cmd_opts_parse(int argc, char *argv[], cmd_opts_t *opts)
 		{"stop-on-error",	0, NULL, 'e'},
 		{"datastore",		1, NULL, 'd'},
 		{"current-path",	1, NULL, 'p'},
+		{"operation",		1, NULL, 'o'},
 		{NULL,			0, NULL, 0}
 	};
 
@@ -165,6 +169,15 @@ static int cmd_opts_parse(int argc, char *argv[], cmd_opts_t *opts)
 			faux_str_free(opts->cfg);
 			opts->cfg = faux_str_dup(optarg);
 			break;
+		case 'o':
+			opts->op = optarg[0];
+			if ((opts->op != 's') && (opts->op != 'd')) {
+				fprintf(stderr, "Error: Illegal operation '%c'\n",
+					opts->op);
+				help(-1, argv[0]);
+				_exit(-1);
+			}
+			break;
 		case 'd':
 			if (!kly_str2ds(optarg, strlen(optarg), &opts->datastore))
 				return BOOL_FALSE;
@@ -185,10 +198,6 @@ static int cmd_opts_parse(int argc, char *argv[], cmd_opts_t *opts)
 		faux_str_free(opts->file);
 		opts->file = faux_str_dup(argv[optind]);
 	}
-
-	// Validate options
-	if (!opts->user)
-		opts->user = faux_str_dup(DEFAULT_USER);
 
 	return 0;
 }
@@ -221,7 +230,10 @@ static void help(int status, const char *argv0)
 		printf("\t-e, --stop-on-error Stop script execution on error\n");
 		printf("\t-u <name>, --user=<name> NACM user name\n");
 		printf("\t-f <path>, --conf=<path> Config file with parsing settings\n");
-		printf("\t-d <ds>, --datastore=<ds> Datastore (Default is 'candidate'\n");
+		printf("\t-o <op>, --operation=<op> Operation to perform\n");
+		printf("\t\t's' Set (default)\n");
+		printf("\t\t'd' Delete\n");
+		printf("\t-d <ds>, --datastore=<ds> Datastore (Default is 'candidate')\n");
 		printf("\t-p <sr-path>, --current-path=<sr-path> Current sysrepo path\n");
 	}
 }
