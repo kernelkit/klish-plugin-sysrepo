@@ -390,7 +390,7 @@ bool_t show_xpath(sr_session_ctx_t *sess, const char *xpath,
 	nodes_list = data->tree;
 
 	while (nodes_list && (edepth > 0)) {
-		nodes_list = lyd_child(nodes_list);
+		nodes_list = lyd_child_no_keys(nodes_list);
 		edepth--;
 	}
 
