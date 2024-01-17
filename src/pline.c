@@ -392,7 +392,7 @@ static bool_t pexpr_xpath_add_node(pexpr_t *pexpr,
 
 
 static bool_t pexpr_xpath_add_list_key(pexpr_t *pexpr,
-	const char *key, const char *value, bool_t inc_args_num)
+       const char *key, const char *value, char *prefix, bool_t inc_args_num)
 {
 	char *tmp = NULL;
 	char *escaped = NULL;
@@ -402,7 +402,7 @@ static bool_t pexpr_xpath_add_list_key(pexpr_t *pexpr,
 	assert(value);
 
 	escaped = faux_str_c_esc(value);
-	tmp = faux_str_sprintf("[%s=\"%s\"]", key, escaped);
+	tmp = faux_str_sprintf("[%s=\"%s%s%s\"]", key, prefix ? prefix : "", prefix ? ":" : "",escaped);
 	faux_str_free(escaped);
 	faux_str_cat(&pexpr->xpath, tmp);
 	faux_str_cat(&pexpr->last_keys, tmp);
@@ -614,8 +614,9 @@ static bool_t pline_parse_module(const struct lys_module *module, faux_argv_t *a
 							break;
 						}
 
+						/* TODO: Is it required to add prefix on identyref here also? */
 						pexpr_xpath_add_list_key(pexpr,
-							leaf->name, str, BOOL_TRUE);
+									 leaf->name, str, NULL, BOOL_TRUE);
 						faux_argv_each(&arg);
 						str = (const char *)faux_argv_current(arg);
 						pexpr->pat = PAT_LIST_KEY_INCOMPLETED;
@@ -690,8 +691,17 @@ static bool_t pline_parse_module(const struct lys_module *module, faux_argv_t *a
 							break;
 						}
 
+						struct lysc_node_leaf *leaf =
+							(struct lysc_node_leaf *)cur_key->node;
+						char *prefix = NULL;
+						// Idenity must have prefix
+						if (LY_TYPE_IDENT == leaf->type->basetype) {
+							prefix = klysc_identityref_prefix((struct lysc_type_identityref *)
+											  leaf->type, str);
+						}
+
 						pexpr_xpath_add_list_key(pexpr,
-							cur_key->node->name, str, BOOL_TRUE);
+									 cur_key->node->name, str, prefix, BOOL_TRUE);
 						cur_key->value = str;
 						specified_keys_num++;
 						faux_argv_each(&arg);
@@ -716,8 +726,8 @@ static bool_t pline_parse_module(const struct lys_module *module, faux_argv_t *a
 
 						if (opts->default_keys && cur_key->dflt) {
 							pexpr_xpath_add_list_key(pexpr,
-								cur_key->node->name,
-								cur_key->dflt, BOOL_FALSE);
+										 cur_key->node->name,
+										 cur_key->dflt, NULL, BOOL_FALSE);
 							pexpr->pat = PAT_LIST_KEY_INCOMPLETED;
 						} else { // Mandatory key is not specified
 							break_upper_loop = BOOL_TRUE;
