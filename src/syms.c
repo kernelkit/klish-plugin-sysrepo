@@ -928,6 +928,7 @@ static int show(kcontext_t *context, sr_datastore_t ds,
 	pexpr_t *expr = NULL;
 	faux_argv_t *cur_path = NULL;
 	char *xpath = NULL;
+	size_t xpath_depth = 0;
 
 	assert(context);
 
@@ -965,9 +966,10 @@ static int show(kcontext_t *context, sr_datastore_t ds,
 			goto err;
 		}
 		xpath = expr->xpath;
+		xpath_depth = expr->tree_depth;
 	}
 
-	show_xpath(sess, xpath, srp_udata_opts(context));
+	show_xpath(sess, xpath, xpath_depth, srp_udata_opts(context));
 
 	ret = 0;
 err:

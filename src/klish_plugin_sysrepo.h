@@ -311,7 +311,8 @@ enum diff_op {
     DIFF_OP_NONE,
 };
 
-bool_t show_xpath(sr_session_ctx_t *sess, const char *xpath, pline_opts_t *opts);
+bool_t show_xpath(sr_session_ctx_t *sess, const char *xpath,
+	size_t xpath_depth, pline_opts_t *opts);
 void show_subtree(const struct lyd_node *nodes_list, size_t level,
 	enum diff_op op, pline_opts_t *opts, bool_t parent_is_oneliner);
 

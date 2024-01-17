@@ -357,6 +357,7 @@ void pline_debug(pline_t *pline)
 		syslog(LOG_ERR, "pexpr.args_num = %lu", pexpr->args_num);
 		syslog(LOG_ERR, "pexpr.list_pos = %lu", pexpr->list_pos);
 		syslog(LOG_ERR, "pexpr.last_keys = %s", pexpr->last_keys ? pexpr->last_keys : "NULL");
+		syslog(LOG_ERR, "pexpr.tree_depth = %lu", pexpr->tree_depth);
 		syslog(LOG_ERR, "---");
 	}
 
@@ -387,7 +388,6 @@ static bool_t pexpr_xpath_add_node(pexpr_t *pexpr,
 	faux_str_cat(&pexpr->xpath, tmp);
 	faux_str_free(tmp);
 	pexpr->args_num++;
-	pexpr->tree_depth++;
 	// Activate current expression. Because it really has
 	// new component
 	pexpr->active = BOOL_TRUE;
@@ -573,6 +573,7 @@ static bool_t pline_parse_module(const struct lys_module *module,
 		} else if (node->nodetype & LYS_CONTAINER) {
 
 			pexpr->pat = PAT_CONTAINER;
+			pexpr->tree_depth++;
 
 			// Completion
 			if (!str) {
@@ -736,6 +737,7 @@ static bool_t pline_parse_module(const struct lys_module *module,
 			}
 
 			pexpr->pat = PAT_LIST_KEY;
+			pexpr->tree_depth++;
 
  			// Completion
 			if (!str) {

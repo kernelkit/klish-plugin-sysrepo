@@ -368,28 +368,34 @@ void show_subtree(const struct lyd_node *nodes_list, size_t level,
 }
 
 
-bool_t show_xpath(sr_session_ctx_t *sess, const char *xpath, pline_opts_t *opts)
+bool_t show_xpath(sr_session_ctx_t *sess, const char *xpath,
+	size_t xpath_depth, pline_opts_t *opts)
 {
 	sr_data_t *data = NULL;
 	struct lyd_node *nodes_list = NULL;
+	const char *expath = xpath; // Effective XPath
+	size_t edepth = xpath_depth;
 
 	assert(sess);
 
-	if (xpath) {
-		if (sr_get_subtree(sess, xpath, 0, &data) != SR_ERR_OK)
-			return BOOL_FALSE;
-		if (!data) // Not found
-			return BOOL_TRUE;
-		nodes_list = lyd_child(data->tree);
-	} else {
-		if (sr_get_data(sess, "/*", 0, 0, 0, &data) != SR_ERR_OK)
-			return BOOL_FALSE;
-		if (!data) // Not found
-			return BOOL_TRUE;
-		nodes_list = data->tree;
+	if (!expath) {
+		expath = "/*";
+		edepth = 0;
 	}
 
-	show_subtree(nodes_list, 0, DIFF_OP_NONE, opts, BOOL_FALSE);
+	if (sr_get_data(sess, expath, 0, 0, 0, &data) != SR_ERR_OK)
+		return BOOL_FALSE;
+	if (!data) // Not found
+		return BOOL_TRUE;
+	nodes_list = data->tree;
+
+	while (nodes_list && (edepth > 0)) {
+		nodes_list = lyd_child(nodes_list);
+		edepth--;
+	}
+
+	if (nodes_list)
+		show_subtree(nodes_list, 0, DIFF_OP_NONE, opts, BOOL_FALSE);
 	sr_release_data(data);
 
 	return BOOL_TRUE;
