@@ -1335,10 +1335,13 @@ void pline_print_completions(const pline_t *pline, bool_t help,
 					0, 0, &vals, &val_num);
 				for (i = 0; i < val_num; i++) {
 					char *tmp = sr_val_to_str(&vals[i]);
+					char *esc_tmp = NULL;
 					if (!tmp)
 						continue;
-					printf("%s\n", tmp);
+					esc_tmp = klyd_esc_value(tmp);
 					free(tmp);
+					printf("%s\n", esc_tmp);
+					free(esc_tmp);
 				}
 				sr_free_values(vals, val_num);
 			} else if (existing_nodes_only) {
