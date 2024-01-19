@@ -330,7 +330,6 @@ bool_t klysc_node_ext(const struct lysc_node *node,
 bool_t klysc_node_ext_is_password(const struct lysc_node *node);
 const char *klysc_node_ext_completion(const struct lysc_node *node);
 const char *klysc_node_ext_default(const struct lysc_node *node);
-char *klyd_esc_value(const char *value);
 char *klyd_node_value(const struct lyd_node *node);
 const struct lysc_node *klysc_find_child(const struct lysc_node *node,
 	const char *name);

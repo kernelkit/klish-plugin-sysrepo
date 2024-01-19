@@ -1338,7 +1338,7 @@ void pline_print_completions(const pline_t *pline, bool_t help,
 					char *esc_tmp = NULL;
 					if (!tmp)
 						continue;
-					esc_tmp = klyd_esc_value(tmp);
+					esc_tmp = faux_str_c_esc_space(tmp);
 					free(tmp);
 					printf("%s\n", esc_tmp);
 					free(esc_tmp);

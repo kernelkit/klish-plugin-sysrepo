@@ -140,29 +140,6 @@ const char *klysc_node_ext_default(const struct lysc_node *node)
 }
 
 
-char *klyd_esc_value(const char *value)
-{
-	char *space = NULL;
-	char *escaped = NULL;
-	char *result = NULL;
-
-	if (!value)
-		return NULL;
-
-	escaped = faux_str_c_esc(value);
-	// String with space must have quotes
-	space = strchr(escaped, ' ');
-	if (space) {
-		result = faux_str_sprintf("\"%s\"", escaped);
-		faux_str_free(escaped);
-	} else {
-		result = escaped;
-	}
-
-	return result;
-}
-
-
 // Get value from data lyd node
 char *klyd_node_value(const struct lyd_node *node)
 {
@@ -191,7 +168,7 @@ char *klyd_node_value(const struct lyd_node *node)
 		origin_value = value->ident->name;
 	}
 
-	return klyd_esc_value(origin_value);
+	return faux_str_c_esc_quote(origin_value);
 }
 
 
