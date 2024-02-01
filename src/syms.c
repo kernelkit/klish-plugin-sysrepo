@@ -109,6 +109,8 @@ static int srp_compl_or_help(kcontext_t *context, bool_t help,
 	assert(context);
 
 	sess = srp_udata_sr_sess(context);
+	if (!sess)
+		return -1;
 
 	if (use_cur_path)
 		cur_path = (faux_argv_t *)srp_udata_path(context);
@@ -252,6 +254,8 @@ static int srp_check_type(kcontext_t *context,
 
 	assert(context);
 	sess = srp_udata_sr_sess(context);
+	if (!sess)
+		return -1;
 
 	if (use_cur_path)
 		cur_path = (faux_argv_t *)srp_udata_path(context);
@@ -367,6 +371,8 @@ int srp_PLINE_INSERT_TO(kcontext_t *context)
 
 	assert(context);
 	sess = srp_udata_sr_sess(context);
+	if (!sess)
+		return -1;
 
 	cur_path = (faux_argv_t *)srp_udata_path(context);
 	value = kcontext_candidate_value(context);
@@ -401,6 +407,8 @@ static int srp_compl_or_help_insert_to(kcontext_t *context, bool_t help)
 
 	assert(context);
 	sess = srp_udata_sr_sess(context);
+	if (!sess)
+		return -1;
 
 	cur_path = (faux_argv_t *)srp_udata_path(context);
 	args = assemble_insert_to(sess, kcontext_parent_pargv(context),
@@ -439,6 +447,8 @@ int srp_set(kcontext_t *context)
 
 	assert(context);
 	sess = srp_udata_sr_sess(context);
+	if (!sess)
+		return -1;
 
 	cur_path = (faux_argv_t *)srp_udata_path(context);
 	args = param2argv(cur_path, kcontext_pargv(context), ARG_PATH);
@@ -500,6 +510,8 @@ int srp_del(kcontext_t *context)
 
 	assert(context);
 	sess = srp_udata_sr_sess(context);
+	if (!sess)
+		return -1;
 
 	cur_path = (faux_argv_t *)srp_udata_path(context);
 	args = param2argv(cur_path, kcontext_pargv(context), ARG_PATH);
@@ -553,6 +565,8 @@ int srp_edit(kcontext_t *context)
 
 	assert(context);
 	sess = srp_udata_sr_sess(context);
+	if (!sess)
+		return -1;
 
 	cur_path = (faux_argv_t *)srp_udata_path(context);
 	args = param2argv(cur_path, kcontext_pargv(context), ARG_PATH);
@@ -617,6 +631,8 @@ int srp_up(kcontext_t *context)
 
 	assert(context);
 	sess = srp_udata_sr_sess(context);
+	if (!sess)
+		return -1;
 
 	cur_path = (faux_argv_t *)srp_udata_path(context);
 	if (!cur_path)
@@ -676,6 +692,8 @@ int srp_insert(kcontext_t *context)
 
 	assert(context);
 	sess = srp_udata_sr_sess(context);
+	if (!sess)
+		return -1;
 
 	cur_path = (faux_argv_t *)srp_udata_path(context);
 	pargv = kcontext_pargv(context);
@@ -774,6 +792,8 @@ int srp_verify(kcontext_t *context)
 
 	assert(context);
 	sess = srp_udata_sr_sess(context);
+	if (!sess)
+		return -1;
 
 	// Validate candidate config
 	if (sr_validate(sess, NULL, 0) != SR_ERR_OK) {
@@ -795,6 +815,8 @@ int srp_commit(kcontext_t *context)
 
 	assert(context);
 	sess = srp_udata_sr_sess(context);
+	if (!sess)
+		return -1;
 
 	// Validate candidate config. The copy operation is not enough to fully
 	// verify candidate config. It verifies only the part of it. So verify
@@ -839,6 +861,8 @@ int srp_reset(kcontext_t *context)
 
 	assert(context);
 	sess = srp_udata_sr_sess(context);
+	if (!sess)
+		return -1;
 
 	// Copy running-config to candidate config
 	if (sr_copy_config(sess, NULL, SR_DS_RUNNING, 0) != SR_ERR_OK) {
@@ -866,6 +890,8 @@ int srp_show_xml(kcontext_t *context)
 
 	assert(context);
 	sess = srp_udata_sr_sess(context);
+	if (!sess)
+		return -1;
 
 	cur_path = (faux_argv_t *)srp_udata_path(context);
 	args = param2argv(cur_path, kcontext_pargv(context), ARG_PATH);
@@ -931,8 +957,10 @@ static int show(kcontext_t *context, sr_datastore_t ds,
 	size_t xpath_depth = 0;
 
 	assert(context);
-
 	sess = srp_udata_sr_sess(context);
+	if (!sess)
+		return -1;
+
 	if (ds != SRP_REPO_EDIT)
 		sr_session_switch_ds(sess, ds);
 	if (use_cur_path)
@@ -1021,6 +1049,8 @@ int srp_deactivate(kcontext_t *context)
 	assert(context);
 
 	sess = srp_udata_sr_sess(context);
+	if (!sess)
+		return -1;
 
 	cur_path = (faux_argv_t *)srp_udata_path(context);
 	args = param2argv(cur_path, kcontext_pargv(context), ARG_PATH);
@@ -1104,6 +1134,8 @@ int srp_diff(kcontext_t *context)
 
 	assert(context);
 	sess = srp_udata_sr_sess(context);
+	if (!sess)
+		return -1;
 
 	cur_path = (faux_argv_t *)srp_udata_path(context);
 
@@ -1202,6 +1234,9 @@ int srp_compl_xpath(kcontext_t *context)
 		return -1;
 
 	sess = srp_udata_sr_sess(context);
+	if (!sess)
+		return -1;
+
 	if (ds != SRP_REPO_EDIT)
 		sr_session_switch_ds(sess, ds);
 

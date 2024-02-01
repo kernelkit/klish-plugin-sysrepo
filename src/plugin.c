@@ -229,20 +229,7 @@ void srp_udata_set_path(kcontext_t *context, faux_argv_t *path)
 }
 
 
-sr_session_ctx_t *srp_udata_sr_sess(kcontext_t *context)
-{
-	srp_udata_t *udata = NULL;
-
-	assert(context);
-
-	udata = srp_udata(context);
-	assert(udata);
-
-	return udata->sr_sess;
-}
-
-
-static int kplugin_sysrepo_init_session(kcontext_t *context)
+static bool_t kplugin_sysrepo_connect(kcontext_t *context)
 {
 	srp_udata_t *udata = NULL;
 	const char *user = NULL;
@@ -257,25 +244,59 @@ static int kplugin_sysrepo_init_session(kcontext_t *context)
 
 	// Connect to Sysrepo
 	if (sr_connect(SR_CONN_DEFAULT, &(udata->sr_conn))) {
+		udata->sr_conn = NULL;
 		syslog(LOG_ERR, "Can't connect to Sysrepo");
-		return -1;
+		return BOOL_FALSE;
 	}
 	if (sr_session_start(udata->sr_conn, SRP_REPO_EDIT, &(udata->sr_sess))) {
-		syslog(LOG_ERR, "Can't connect create Sysrepo session");
 		sr_disconnect(udata->sr_conn);
-		return -1;
+		udata->sr_conn = NULL;
+		syslog(LOG_ERR, "Can't connect create Sysrepo session");
+		return BOOL_FALSE;
 	}
 	sr_session_set_orig_name(udata->sr_sess, user);
 	// Init NACM session
 	if (udata->opts.enable_nacm) {
 		if (sr_nacm_init(udata->sr_sess, 0, &(udata->nacm_sub)) != SR_ERR_OK) {
 			sr_disconnect(udata->sr_conn);
-			return -1;
+			udata->sr_conn = NULL;
+			return BOOL_FALSE;
 		}
 		sr_nacm_set_user(udata->sr_sess, user);
 	}
 
 	syslog(LOG_INFO, "Start SysRepo session for \"%s\"", user);
+
+	return BOOL_TRUE;
+}
+
+
+sr_session_ctx_t *srp_udata_sr_sess(kcontext_t *context)
+{
+	srp_udata_t *udata = NULL;
+
+	assert(context);
+
+	udata = srp_udata(context);
+	assert(udata);
+
+	// Sysrepo is already connected
+	if (udata->sr_conn)
+		return udata->sr_sess;
+
+	// Lazy connection to Sysrepo
+	if (!kplugin_sysrepo_connect(context)) {
+		fprintf(stderr, "Error: Can't connect to config storage");
+		return NULL;
+	}
+
+	return udata->sr_sess;
+}
+
+
+static int kplugin_sysrepo_init_session(kcontext_t *context)
+{
+	context = context; // Happy compiler
 
 	return 0;
 }
@@ -284,23 +305,26 @@ static int kplugin_sysrepo_init_session(kcontext_t *context)
 static int kplugin_sysrepo_fini_session(kcontext_t *context)
 {
 	srp_udata_t *udata = NULL;
-	const char *user = NULL;
 
 	assert(context);
 
 	udata = srp_udata(context);
 	assert(udata);
 
-	// Remote user name
-	user = ksession_user(kcontext_session(context));
+	// Due to lazy connect to sysrepo the connection can be down
+	if (udata->sr_conn) {
+		const char *user = NULL;
 
-	if (udata->opts.enable_nacm) {
-		sr_unsubscribe(udata->nacm_sub);
-		sr_nacm_destroy();
+		if (udata->opts.enable_nacm) {
+			sr_unsubscribe(udata->nacm_sub);
+			sr_nacm_destroy();
+		}
+		sr_disconnect(udata->sr_conn);
+		// Remote user name
+		user = ksession_user(kcontext_session(context));
+		syslog(LOG_INFO, "Stop SysRepo session for \"%s\"",
+			user ? user : "<unknown>");
 	}
-	sr_disconnect(udata->sr_conn);
-
-	syslog(LOG_INFO, "Stop SysRepo session for \"%s\"", user ? user : "<unknown>");
 
 	return 0;
 }
