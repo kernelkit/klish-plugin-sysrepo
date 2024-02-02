@@ -633,7 +633,7 @@ int srp_set(kcontext_t *context)
 					sr_free_val(val);
 				}
 
-				snprintf(buf, sizeof(buf), "edit %s", fn);
+				snprintf(buf, sizeof(buf), "editor %s", fn);
 				if ((ret = run(buf))) {
 //					fprintf(stderr, ERRORMSG "failed '%s' => %d\n", buf, ret);
 					err_num++;
