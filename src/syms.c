@@ -749,7 +749,6 @@ int srp_del(kcontext_t *context)
 	sr_session_ctx_t *sess = NULL;
 	pexpr_t *expr = NULL;
 	faux_argv_t *cur_path = NULL;
-	sr_val_t *val;
 
 	assert(context);
 	sess = srp_udata_sr_sess(context);
@@ -771,23 +770,6 @@ int srp_del(kcontext_t *context)
 
 	expr = (pexpr_t *)faux_list_data(faux_list_head(pline->exprs));
 
-	if (!sr_get_item(sess, expr->xpath, 0, &val)) {
-		if (val->type == SR_BOOL_T) {
-			if (expr->value)
-				free(expr->value);
-			expr->value = strdup("false");
-		} else {
-			sr_free_val(val);
-			goto nonbool;
-		}
-
-		sr_free_val(val);
-		if (sr_set_item_str(sess, expr->xpath, expr->value, NULL, 0))
-			srp_error(sess, ERRORMSG "Failed resetting boolean %s\n", expr->xpath);
-		goto done;
-	}
-
-nonbool:
 	if (!(expr->pat & PT_DEL)) {
 		fprintf(stderr, ERRORMSG "Illegal expression for 'del' operation\n");
 		goto err;
@@ -797,7 +779,7 @@ nonbool:
 		srp_error(sess, ERRORMSG "Can't delete data\n");
 		goto err;
 	}
-done:
+
 	if (sr_apply_changes(sess, 0) != SR_ERR_OK) {
 		sr_discard_changes(sess);
 		srp_error(sess, ERRORMSG "Can't apply changes\n");
