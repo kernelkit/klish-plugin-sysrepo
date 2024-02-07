@@ -337,7 +337,7 @@ static const char *pat2str(pat_e pat)
 }
 
 
-void pline_debug(pline_t *pline)
+void pline_debug(const pline_t *pline)
 {
 	faux_list_node_t *iter = NULL;
 	pexpr_t *pexpr = NULL;
@@ -1304,6 +1304,29 @@ static void pline_print_type_help(const struct lysc_node *node,
 }
 
 
+static bool_t pline_node_exists(sr_session_ctx_t* sess, const char *xpath)
+{
+	sr_val_t *vals = NULL;
+	size_t val_num = 0;
+	bool_t found = BOOL_FALSE;
+	size_t i = 0;
+
+	if (!xpath)
+		return BOOL_FALSE;
+	sr_get_items(sess, xpath, 0, 0, &vals, &val_num);
+	for (i = 0; i < val_num; i++) {
+		// Engine can find defaults for entries but not entries themself
+		if (!vals[i].dflt) {
+			found = BOOL_TRUE;
+			break;
+		}
+	}
+	sr_free_values(vals, val_num);
+
+	return found;
+}
+
+
 void pline_print_completions(const pline_t *pline, bool_t help,
 	pt_e enabled_types, bool_t existing_nodes_only)
 {
@@ -1319,80 +1342,106 @@ void pline_print_completions(const pline_t *pline, bool_t help,
 		if (!(pcompl->pat & enabled_types))
 			continue;
 
-		if (pcompl->xpath && !help) {
-			sr_val_t *vals = NULL;
-			size_t val_num = 0;
-			size_t i = 0;
+		// Switch to necessary DS
+		if (pcompl->xpath && (current_ds != pcompl->xpath_ds)) {
+			sr_session_switch_ds(pline->sess, pcompl->xpath_ds);
+			current_ds = pcompl->xpath_ds;
+		}
 
-			// Switch to necessary DS
-			if (current_ds != pcompl->xpath_ds) {
-				sr_session_switch_ds(pline->sess, pcompl->xpath_ds);
-				current_ds = pcompl->xpath_ds;
+		// Help
+		if (help) {
+
+			// Note we can't show help without valid node
+			if (!node)
+				continue;
+
+			// Type (help)
+			if (pcompl->type == PCOMPL_TYPE) {
+				if (node->nodetype & LYS_LEAF)
+					type = ((struct lysc_node_leaf *)node)->type;
+				else if (node->nodetype & LYS_LEAFLIST)
+					type = ((struct lysc_node_leaflist *)node)->type;
+				else
+					continue;
+				pline_print_type_help(node, type);
+				continue;
 			}
 
-			if (PCOMPL_TYPE == pcompl->type) {
-				sr_get_items(pline->sess, pcompl->xpath,
-					0, 0, &vals, &val_num);
-				for (i = 0; i < val_num; i++) {
-					char *tmp = sr_val_to_str(&vals[i]);
-					char *esc_tmp = NULL;
-					if (!tmp)
-						continue;
-					esc_tmp = faux_str_c_esc_space(tmp);
-					free(tmp);
-					printf("%s\n", esc_tmp);
-					free(esc_tmp);
-				}
-				sr_free_values(vals, val_num);
-			} else if (existing_nodes_only) {
-				bool_t dflt = BOOL_TRUE;
-				sr_get_items(pline->sess, pcompl->xpath,
-					0, 0, &vals, &val_num);
-				for (i = 0; i < val_num; i++) {
-					if (!vals[i].dflt) {
-						dflt = BOOL_FALSE;
-						break;
+			// Check node for existing if necessary
+			if (existing_nodes_only &&
+				!pline_node_exists(pline->sess, pcompl->xpath)) {
+					continue;
+			}
+
+			// Node (help)
+			if (!node->dsc) {
+				printf("%s\n%s\n", node->name, node->name);
+			} else {
+				char *dsc = faux_str_getline(node->dsc,
+					NULL);
+				printf("%s\n%s\n", node->name, dsc);
+				faux_str_free(dsc);
+			}
+
+		// Completion
+		} else {
+
+			// Type (completion)
+			if (pcompl->type == PCOMPL_TYPE) {
+
+				// Existing entries
+				if (pcompl->xpath) {
+					size_t i = 0;
+					sr_val_t *vals = NULL;
+					size_t val_num = 0;
+
+					sr_get_items(pline->sess, pcompl->xpath,
+						0, 0, &vals, &val_num);
+					for (i = 0; i < val_num; i++) {
+						char *tmp = sr_val_to_str(&vals[i]);
+						char *esc_tmp = NULL;
+						if (!tmp)
+							continue;
+						esc_tmp = faux_str_c_esc_space(tmp);
+						free(tmp);
+						printf("%s\n", esc_tmp);
+						free(esc_tmp);
 					}
+					sr_free_values(vals, val_num);
+					continue;
 				}
-				if (!dflt)
-					printf("%s\n", node->name);
-				sr_free_values(vals, val_num);
+
+				if (!node)
+					continue;
+				if (existing_nodes_only)
+					continue;
+
+				// All entries
+				if (node->nodetype & LYS_LEAF)
+					type = ((struct lysc_node_leaf *)node)->type;
+				else if (node->nodetype & LYS_LEAFLIST)
+					type = ((struct lysc_node_leaflist *)node)->type;
+				else
+					continue;
+				pline_print_type_completions(type);
+				continue;
 			}
-		}
 
-		if (!node)
-			continue;
-		if (existing_nodes_only)
-			continue;
+			// Node (completion)
+			if (!node)
+				continue;
 
-		// Node
-		if (PCOMPL_NODE == pcompl->type) {
+			// Existing entries
+			if (existing_nodes_only &&
+				!pline_node_exists(pline->sess, pcompl->xpath)) {
+					continue;
+			}
+
 			printf("%s\n", node->name);
-			if (help) {
-				if (!node->dsc) {
-					printf("%s\n", node->name);
-				} else {
-					char *dsc = faux_str_getline(node->dsc,
-						NULL);
-					printf("%s\n", dsc);
-					faux_str_free(dsc);
-				}
-			}
-			continue;
-		}
 
-		// Type
-		if (node->nodetype & LYS_LEAF)
-			type = ((struct lysc_node_leaf *)node)->type;
-		else if (node->nodetype & LYS_LEAFLIST)
-			type = ((struct lysc_node_leaflist *)node)->type;
-		else
-			continue;
-		if (help)
-			pline_print_type_help(node, type);
-		else
-			pline_print_type_completions(type);
-	}
+		} // Completion
+
+	} // while
 
 	// Restore default DS
 	if (current_ds != SRP_REPO_EDIT)
