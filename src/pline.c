@@ -1408,7 +1408,6 @@ void pline_print_completions(const pline_t *pline, bool_t help,
 						free(esc_tmp);
 					}
 					sr_free_values(vals, val_num);
-					continue;
 				}
 
 				if (!node)
