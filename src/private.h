@@ -57,6 +57,9 @@ int srp_prompt_edit_path(kcontext_t *context);
 int srp_compl_xpath(kcontext_t *context);
 int srp_prompt(kcontext_t *context);
 
+// Interactive operations
+int srp_helper(kcontext_t *context);
+
 // Operations
 int srp_set(kcontext_t *context);
 int srp_del(kcontext_t *context);

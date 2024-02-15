@@ -529,6 +529,26 @@ cleanup:
 	return ret;
 }
 
+LY_DATA_TYPE node_type(sr_session_ctx_t *sess, const char *xpath)
+{
+	const struct lysc_node *schema;
+	const struct lysc_type *type;
+	const struct ly_ctx *ctx;
+
+	ctx = sr_acquire_context(sr_session_get_connection(sess));
+	if (!ctx)
+		return LY_TYPE_UNKNOWN;
+
+	schema = lys_find_path(ctx, NULL, xpath, 0);
+	if (!schema || !(schema->nodetype & LYS_LEAF))
+		return LY_TYPE_UNKNOWN;
+
+	type = ((const struct lysc_node_leaf *)schema)->type;
+	sr_release_context(sr_session_get_connection(sess));
+
+	return type->basetype;
+}
+
 static int is_pwd(const char *xpath)
 {
 	if (strstr(xpath, "/ietf-system:password"))
@@ -554,6 +574,178 @@ static int run(const char *cmd)
 
 	return rc;
 }
+
+/*
+ * Instead of srp_set(), which requries a value, this calls an external
+ * helper command to construct the value.
+ */
+int srp_helper(kcontext_t *context)
+{
+	int ret = 0;
+	faux_argv_t *args = NULL;
+	pline_t *pline = NULL;
+	sr_session_ctx_t *sess = NULL;
+	faux_list_node_t *iter = NULL;
+	pexpr_t *expr = NULL;
+	size_t err_num = 0;
+	faux_argv_t *cur_path = NULL;
+
+	assert(context);
+	sess = srp_udata_sr_sess(context);
+
+	cur_path = (faux_argv_t *)srp_udata_path(context);
+	args = param2argv(cur_path, kcontext_pargv(context), ARG_PATH);
+	pline = pline_parse(sess, args, srp_udata_opts(context));
+	faux_argv_free(args);
+
+	if (pline->invalid) {
+		fprintf(stderr, ERRORMSG "Invalid set request.\n");
+		ret = -1;
+		goto cleanup;
+	}
+
+	iter = faux_list_head(pline->exprs);
+	while ((expr = (pexpr_t *)faux_list_each(&iter))) {
+		LY_DATA_TYPE type;
+		mode_t omask;
+
+		if (expr->pat & PT_SET) {
+			fprintf(stderr, ERRORMSG "command does not take value, try 'set key value'\n");
+			err_num++;
+			break;
+		}
+
+		omask = umask(0177);
+
+		type = node_type(sess, expr->xpath);
+		if (type == LY_TYPE_BINARY) {
+			char fn[] = "/tmp/editor.XXXXXX";
+			char buf[BUFSIZ];
+			sr_val_t *val;
+			FILE *fp;
+			int fd;
+
+			fd = mkstemp(fn);
+			if (fd == -1) {
+				err_num++;
+				goto fail;
+			}
+			close(fd);
+
+			if (!sr_get_item(sess, expr->xpath, 0, &val)) {
+				snprintf(buf, sizeof(buf), "base64 -d > %s", fn);
+				fp = popen(buf, "w");
+				if (!fp) {
+//					fprintf(stderr, ERRORMSG "failed decoding %s\n", fn);
+					/*
+					 * not incrementing err_num, data may be broken,
+					 * give user a chance to mend it
+					 */
+				} else {
+					fputs(val->data.binary_val, fp);
+					pclose(fp);
+				}
+				sr_free_val(val);
+			}
+
+			snprintf(buf, sizeof(buf), "editor %s", fn);
+			if ((ret = run(buf))) {
+//					fprintf(stderr, ERRORMSG "failed '%s' => %d\n", buf, ret);
+				err_num++;
+				goto fail;
+			}
+
+			snprintf(buf, sizeof(buf), "base64 -w 0 %s", fn);
+			fp = popen(buf, "r");
+			if (!fp) {
+//					fprintf(stderr, ERRORMSG "failed encoding %s: %s\n",
+//						fn, strerror(errno));
+				err_num++;
+			} else {
+				if (fgets(buf, sizeof(buf), fp)) {
+					chomp(buf);
+					if (expr->value)
+						free(expr->value);
+					expr->value = strdup(buf);
+				} else
+					err_num++;
+
+				pclose(fp);
+			}
+		} else if (type == LY_TYPE_STRING && is_pwd(expr->xpath)) {
+			char fn[] = "/tmp/editor.XXXXXX";
+			char buf[256];
+			FILE *fp;
+			int fd;
+
+			fd = mkstemp(fn);
+			if (fd == -1) {
+				err_num++;
+				goto fail;
+			}
+			close(fd);
+
+			snprintf(buf, sizeof(buf), "askpass %s", fn);
+			if ((ret = run(buf))) {
+//					fprintf(stderr, ERRORMSG "failed '%s' => %d\n", buf, ret);
+				unlink(fn);
+				err_num++;
+				goto fail;
+			}
+
+			fp = fopen(fn, "r");
+			if (!fp) {
+//					fprintf(stderr, ERRORMSG "failed opening %s: %s\n",
+//						fn, strerror(errno));
+				err_num++;
+			} else {
+				if (fgets(buf, sizeof(buf), fp)) {
+					chomp(buf);
+					if (expr->value)
+						free(expr->value);
+					expr->value = strdup(buf);
+				} else
+					err_num++;
+				fclose(fp);
+			}
+			unlink(fn);
+		} else {
+			fprintf(stderr, ERRORMSG "no helper available, try set instead.\n");
+			err_num++;
+		}
+
+	fail:
+		umask(omask);
+
+		if (sr_set_item_str(sess, expr->xpath, expr->value, NULL, 0)) {
+			err_num++;
+			srp_error(sess, ERRORMSG "Failed setting data.\n");
+			break;
+		}
+	}
+	if (err_num > 0)
+		ret = -1;
+
+	if (!sr_has_changes(sess))
+		goto cleanup;
+
+	if (err_num > 0) {
+		sr_discard_changes(sess);
+		goto cleanup;
+	}
+
+	if (sr_apply_changes(sess, 0) != SR_ERR_OK) {
+		sr_discard_changes(sess);
+		srp_error(sess, ERRORMSG "Failed applying changes.\n");
+		goto cleanup;
+	}
+
+cleanup:
+	pline_free(pline);
+
+	return ret;
+}
+
 
 int srp_set(kcontext_t *context)
 {
@@ -583,135 +775,22 @@ int srp_set(kcontext_t *context)
 	iter = faux_list_head(pline->exprs);
 	while ((expr = (pexpr_t *)faux_list_each(&iter))) {
 		if (!(expr->pat & PT_SET)) {
-			const struct lysc_node *schema;
-			const struct lysc_type *type;
-			const struct ly_ctx *ctx;
-			mode_t omask;
+			LY_DATA_TYPE type;
 
-			ctx = sr_acquire_context(sr_session_get_connection(sess));
-			if (!ctx) {
-				err_num++;
-				break;
-			}
-
-			omask = umask(0177);
-
-			schema = lys_find_path(ctx, NULL, expr->xpath, 0);
-			if (!schema || !(schema->nodetype & LYS_LEAF)) {
-				err_num++;
-				goto fail;
-			}
-			type = ((const struct lysc_node_leaf *)schema)->type;
-
-			if (type->basetype == LY_TYPE_BINARY) {
-				char fn[] = "/tmp/editor.XXXXXX";
-				char buf[BUFSIZ];
-				sr_val_t *val;
-				FILE *fp;
-				int fd;
-
-				fd = mkstemp(fn);
-				if (fd == -1) {
-					err_num++;
-					goto fail;
-				}
-				close(fd);
-
-				if (!sr_get_item(sess, expr->xpath, 0, &val)) {
-					snprintf(buf, sizeof(buf), "base64 -d > %s", fn);
-					fp = popen(buf, "w");
-					if (!fp) {
-//						fprintf(stderr, ERRORMSG "failed decoding %s\n", fn);
-						/*
-						 * not incrementing err_num, data may be broken,
-						 * give user a chance to mend it
-						 */
-					} else {
-						fputs(val->data.binary_val, fp);
-						pclose(fp);
-					}
-					sr_free_val(val);
-				}
-
-				snprintf(buf, sizeof(buf), "editor %s", fn);
-				if ((ret = run(buf))) {
-//					fprintf(stderr, ERRORMSG "failed '%s' => %d\n", buf, ret);
-					err_num++;
-					goto fail;
-				}
-
-				snprintf(buf, sizeof(buf), "base64 -w 0 %s", fn);
-				fp = popen(buf, "r");
-				if (!fp) {
-//					fprintf(stderr, ERRORMSG "failed encoding %s: %s\n",
-//						fn, strerror(errno));
-					err_num++;
-				} else {
-					if (fgets(buf, sizeof(buf), fp)) {
-						chomp(buf);
-						if (expr->value)
-							free(expr->value);
-						expr->value = strdup(buf);
-					} else
-						err_num++;
-
-					pclose(fp);
-				}
-			} else if (type->basetype == LY_TYPE_BOOL) {
+			type = node_type(sess, expr->xpath);
+			if (type == LY_TYPE_BOOL) {
 				if (expr->value)
 					free(expr->value);
 				expr->value = strdup("true");
-			} else if (type->basetype == LY_TYPE_STRING && is_pwd(expr->xpath)) {
-				char fn[] = "/tmp/editor.XXXXXX";
-				char buf[256];
-				FILE *fp;
-				int fd;
-
-				fd = mkstemp(fn);
-				if (fd == -1) {
-					err_num++;
-					goto fail;
-				}
-				close(fd);
-
-				snprintf(buf, sizeof(buf), "askpass %s", fn);
-				if ((ret = run(buf))) {
-//					fprintf(stderr, ERRORMSG "failed '%s' => %d\n", buf, ret);
-					unlink(fn);
-					err_num++;
-					goto fail;
-				}
-
-				fp = fopen(fn, "r");
-				if (!fp) {
-//					fprintf(stderr, ERRORMSG "failed opening %s: %s\n",
-//						fn, strerror(errno));
-					err_num++;
-				} else {
-					if (fgets(buf, sizeof(buf), fp)) {
-						chomp(buf);
-						if (expr->value)
-							free(expr->value);
-						expr->value = strdup(buf);
-					} else
-						err_num++;
-					fclose(fp);
-				}
-				unlink(fn);
 			} else {
 				err_num++;
 				fprintf(stderr, ERRORMSG "Illegal expression for set operation\n");
-			}
-
-		fail:
-			umask(omask);
-			if (err_num) {
-				sr_release_context(sr_session_get_connection(sess));
 				break;
 			}
 		}
 
-		if (sr_set_item_str(sess, expr->xpath, expr->value, NULL, 0)) {
+		if (sr_set_item_str(sess, expr->xpath, expr->value, NULL, 0) !=
+			SR_ERR_OK) {
 			err_num++;
 			srp_error(sess, ERRORMSG "Failed setting data.\n");
 			break;
