@@ -1168,13 +1168,16 @@ static void pline_print_type_help(const struct lysc_node *node,
 	const struct lysc_type *type, int full)
 {
 	const char *units = NULL;
+	const char *dflt = NULL;
 
 	assert(type);
 	assert(node);
 
-	if (node->nodetype & LYS_LEAF)
+	if (node->nodetype & LYS_LEAF) {
 		units = ((struct lysc_node_leaf *)node)->units;
-	else if (node->nodetype & LYS_LEAFLIST)
+		if (node->module)
+			dflt = lyd_value_get_canonical(node->module->ctx, ((struct lysc_node_leaf *)node)->dflt);
+	} else if (node->nodetype & LYS_LEAFLIST)
 		units = ((struct lysc_node_leaflist *)node)->units;
 	else
 		return;
@@ -1323,7 +1326,11 @@ static void pline_print_type_help(const struct lysc_node *node,
 				printf("\t%s\n", str);
 				faux_str_free(str);
 			}
-			puts("");
+			if (dflt) {
+				printf("\n\e[1mDEFAULT\e[0m\n");
+				printf("\t%s\n", dflt);
+			} else
+				puts("");
 		} else {
 			str = faux_str_getline(dsc, NULL);
 			printf("%s\n", str);
