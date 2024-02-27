@@ -625,7 +625,7 @@ static bool_t pline_parse_module(const struct lys_module *module,
 							leaf->name, str, BOOL_TRUE);
 						faux_argv_each(&arg);
 						str = (const char *)faux_argv_current(arg);
-						pexpr->pat = PAT_LIST_KEY_INCOMPLETED;
+						pexpr->pat = PAT_LIST_KEY;
 					}
 
 				// Keys with statements. Arbitrary order of keys.
@@ -683,8 +683,8 @@ static bool_t pline_parse_module(const struct lys_module *module,
 							pexpr->args_num++;
 							faux_argv_each(&arg);
 							str = (const char *)faux_argv_current(arg);
+							pexpr->pat = PAT_LIST_KEY_INCOMPLETED;
 						}
-						pexpr->pat = PAT_LIST_KEY_INCOMPLETED;
 
 						// Completion
 						if (!str) {
@@ -704,7 +704,7 @@ static bool_t pline_parse_module(const struct lys_module *module,
 						specified_keys_num++;
 						faux_argv_each(&arg);
 						str = (const char *)faux_argv_current(arg);
-						pexpr->pat = PAT_LIST_KEY_INCOMPLETED;
+						pexpr->pat = PAT_LIST_KEY;
 					}
 					if (break_upper_loop) {
 						faux_list_free(keys);
@@ -724,7 +724,7 @@ static bool_t pline_parse_module(const struct lys_module *module,
 								cur_key->node->name);
 							pline_add_compl(pline, PCOMPL_NODE,
 								cur_key->node, tmp,
-								SRP_REPO_EDIT, PAT_LIST_KEY);
+								SRP_REPO_EDIT, PAT_LIST_KEY_INCOMPLETED);
 							faux_str_free(tmp);
 						}
 
@@ -732,7 +732,7 @@ static bool_t pline_parse_module(const struct lys_module *module,
 							pexpr_xpath_add_list_key(pexpr,
 								cur_key->node->name,
 								cur_key->dflt, BOOL_FALSE);
-							pexpr->pat = PAT_LIST_KEY_INCOMPLETED;
+							pexpr->pat = PAT_LIST_KEY;
 						} else { // Mandatory key is not specified
 							break_upper_loop = BOOL_TRUE;
 						}
@@ -744,7 +744,6 @@ static bool_t pline_parse_module(const struct lys_module *module,
 					break;
 			}
 
-			pexpr->pat = PAT_LIST_KEY;
 			pexpr->tree_depth++;
 
  			// Completion
