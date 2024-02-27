@@ -633,6 +633,7 @@ static bool_t pline_parse_module(const struct lys_module *module,
 					faux_list_t *keys = NULL;
 					unsigned int specified_keys_num = 0;
 					klysc_key_t *cur_key = NULL;
+					char *xpath_wo_default_keys = NULL;
 					bool_t first_key = BOOL_TRUE;
 					bool_t first_key_is_optional = BOOL_FALSE;
 					faux_list_node_t *key_iter = NULL;
@@ -710,16 +711,22 @@ static bool_t pline_parse_module(const struct lys_module *module,
 						break;
 					}
 
+					xpath_wo_default_keys = faux_str_dup(pexpr->xpath);
 					key_iter = faux_list_head(keys);
 					while((cur_key = (klysc_key_t *)faux_list_each(&key_iter))) {
 						if (cur_key->value)
 							continue;
 
 						// Completion
-						if (!str)
+						if (!str) {
+							char *tmp = faux_str_sprintf("%s/%s",
+								xpath_wo_default_keys,
+								cur_key->node->name);
 							pline_add_compl(pline, PCOMPL_NODE,
-								cur_key->node, NULL,
+								cur_key->node, tmp,
 								SRP_REPO_EDIT, PAT_LIST_KEY);
+							faux_str_free(tmp);
+						}
 
 						if (opts->default_keys && cur_key->dflt) {
 							pexpr_xpath_add_list_key(pexpr,
@@ -730,6 +737,7 @@ static bool_t pline_parse_module(const struct lys_module *module,
 							break_upper_loop = BOOL_TRUE;
 						}
 					}
+					faux_str_free(xpath_wo_default_keys);
 					faux_list_free(keys);
 				}
 				if (break_upper_loop)
