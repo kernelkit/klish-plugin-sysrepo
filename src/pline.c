@@ -1311,24 +1311,58 @@ static void pline_print_type_help(const struct lysc_node *node,
 }
 
 
-static bool_t pline_node_exists(sr_session_ctx_t* sess, const char *xpath)
+static bool_t pline_find_node_within_tree(const struct lyd_node *nodes_list,
+	const struct lysc_node *node)
 {
-	sr_val_t *vals = NULL;
-	size_t val_num = 0;
+	const struct lyd_node *iter = NULL;
+
+	if (!nodes_list)
+		return BOOL_FALSE;
+
+	LY_LIST_FOR(nodes_list, iter) {
+		const char *default_value = NULL;
+		char *value = NULL;
+
+		if (iter->schema != node) {
+			if (pline_find_node_within_tree(lyd_child(iter),
+				node))
+				return BOOL_TRUE;
+			continue;
+		}
+		if (iter->flags & LYD_DEFAULT) {
+			continue;
+		}
+		default_value = klysc_node_ext_default(iter->schema);
+		value = klyd_node_value(iter);
+		// Don't show "default" keys with default values
+		if (default_value && faux_str_cmp(default_value, value) == 0) {
+			faux_str_free(value);
+			continue;
+		}
+		faux_str_free(value);
+		return BOOL_TRUE;
+	}
+
+	return BOOL_FALSE;
+}
+
+
+static bool_t pline_node_exists(sr_session_ctx_t* sess, const char *xpath,
+	const struct lysc_node *node)
+{
+	sr_data_t *data = NULL;
 	bool_t found = BOOL_FALSE;
-	size_t i = 0;
 
 	if (!xpath)
 		return BOOL_FALSE;
-	sr_get_items(sess, xpath, 0, 0, &vals, &val_num);
-	for (i = 0; i < val_num; i++) {
-		// Engine can find defaults for entries but not entries themself
-		if (!vals[i].dflt) {
-			found = BOOL_TRUE;
-			break;
-		}
-	}
-	sr_free_values(vals, val_num);
+	if (sr_get_data(sess, xpath, 1, 0, 0, &data) != SR_ERR_OK)
+		return BOOL_FALSE;
+	if (!data) // Not found
+		return BOOL_FALSE;
+
+	if (pline_find_node_within_tree(data->tree, node))
+		found = BOOL_TRUE;
+	sr_release_data(data);
 
 	return found;
 }
@@ -1376,7 +1410,8 @@ void pline_print_completions(const pline_t *pline, bool_t help,
 
 			// Check node for existing if necessary
 			if (existing_nodes_only &&
-				!pline_node_exists(pline->sess, pcompl->xpath)) {
+				!pline_node_exists(pline->sess, pcompl->xpath,
+				node)) {
 					continue;
 			}
 
@@ -1439,7 +1474,8 @@ void pline_print_completions(const pline_t *pline, bool_t help,
 
 			// Existing entries
 			if (existing_nodes_only &&
-				!pline_node_exists(pline->sess, pcompl->xpath)) {
+				!pline_node_exists(pline->sess, pcompl->xpath,
+				node)) {
 					continue;
 			}
 
