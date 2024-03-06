@@ -252,6 +252,8 @@ static void pline_add_compl_subtree(pline_t *pline, const struct lys_module *mod
 	LY_LIST_FOR(subtree, iter) {
 		pat_e pat = PAT_NONE;
 
+		if(iter->flags & LYS_STATUS_OBSLT)
+			continue;
 		if (!(iter->nodetype & SRP_NODETYPE_CONF))
 			continue;
 		if (!(iter->flags & LYS_CONFIG_W))
