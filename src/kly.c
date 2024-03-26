@@ -213,6 +213,10 @@ int klysc_is_container_list(const struct lysc_node *node)
 	if (!strcmp(node->name, "static-routes"))
 		return 1;	/* always collapse */
 
+	/* Never collapse mdb */
+	if (!strcmp(node->name, "mdb"))
+		return 0;
+
 	/* never collapse ipv4 route or ipv6 route, for now */
 	if (!strcmp(node->name, "ipv4") || !strcmp(node->name, "ipv6"))
 		return 0;	/* never collapse */
