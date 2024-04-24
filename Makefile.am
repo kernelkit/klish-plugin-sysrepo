@@ -25,6 +25,7 @@ include_klish_HEADERS =
 EXTRA_DIST = \
 	bin/Makefile.am \
 	src/Makefile.am \
+	docs/Makefile.am \
 	LICENCE \
 	README.md \
 	xml \
@@ -32,3 +33,4 @@ EXTRA_DIST = \
 
 include $(top_srcdir)/bin/Makefile.am
 include $(top_srcdir)/src/Makefile.am
+include $(top_srcdir)/docs/Makefile.am
