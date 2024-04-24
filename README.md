@@ -42,6 +42,6 @@ Dev mailing list : http://groups.google.com/group/klish-dev
 
 Download : https://src.libcode.org/download/klish-plugin-sysrepo/
 
-Latest release : https://src.libcode.org/download/klish-plugin-sysrepo/klish-plgin-sysrepo-3.1.0.tar.xz
+Latest release : https://src.libcode.org/download/klish-plugin-sysrepo/klish-plugin-sysrepo-3.1.0.tar.xz
 
 Author : Serj Kalichev `pkun(_at_)libcode.org`
