@@ -1287,10 +1287,6 @@ static int show(kcontext_t *context, sr_datastore_t ds,
 			fprintf(stderr, ERRORMSG "Can't get expression\n");
 			goto err;
 		}
-		if (!(expr->pat & PT_EDIT)) {
-			fprintf(stderr, ERRORMSG "Illegal expression for 'show' operation\n");
-			goto err;
-		}
 		if (!expr->xpath) {
 			fprintf(stderr, ERRORMSG "Empty expression for 'show' operation\n");
 			goto err;

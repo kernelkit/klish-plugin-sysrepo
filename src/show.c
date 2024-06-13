@@ -382,6 +382,8 @@ bool_t show_xpath(sr_session_ctx_t *sess, const char *xpath, pline_opts_t *opts)
 		if (!data) // Not found
 			return BOOL_TRUE;
 		nodes_list = lyd_child(data->tree);
+		if (!nodes_list)
+			sr_get_node(sess, xpath, 0, &data);
 	} else {
 		if (sr_get_data(sess, "/*", 0, 0, 0, &data) != SR_ERR_OK)
 			return BOOL_FALSE;
@@ -390,7 +392,11 @@ bool_t show_xpath(sr_session_ctx_t *sess, const char *xpath, pline_opts_t *opts)
 		nodes_list = data->tree;
 	}
 
-	show_subtree(nodes_list, 0, DIFF_OP_NONE, opts, BOOL_FALSE);
+	if (nodes_list)
+		show_subtree(nodes_list, 0, DIFF_OP_NONE, opts, BOOL_FALSE);
+	else if (data)
+		show_node(data->tree, 0, DIFF_OP_NONE, opts, BOOL_FALSE);
+
 	sr_release_data(data);
 
 	return BOOL_TRUE;
