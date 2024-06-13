@@ -735,8 +735,8 @@ int srp_helper(kcontext_t *context)
 	}
 
 	if (sr_apply_changes(sess, 0) != SR_ERR_OK) {
+		srp_error(sess, ERRORMSG "Failed applying changes (1).\n");
 		sr_discard_changes(sess);
-		srp_error(sess, ERRORMSG "Failed applying changes.\n");
 		goto cleanup;
 	}
 
@@ -808,8 +808,8 @@ int srp_set(kcontext_t *context)
 	}
 
 	if (sr_apply_changes(sess, 0) != SR_ERR_OK) {
+		srp_error(sess, ERRORMSG "Failed applying changes (2).\n");
 		sr_discard_changes(sess);
-		srp_error(sess, ERRORMSG "Failed applying changes.\n");
 		goto cleanup;
 	}
 
@@ -860,8 +860,8 @@ int srp_del(kcontext_t *context)
 	}
 
 	if (sr_apply_changes(sess, 0) != SR_ERR_OK) {
-		sr_discard_changes(sess);
 		srp_error(sess, ERRORMSG "Can't apply changes\n");
+		sr_discard_changes(sess);
 		goto err;
 	}
 
@@ -912,8 +912,8 @@ int srp_edit(kcontext_t *context)
 	}
 
 	if (sr_apply_changes(sess, 0) != SR_ERR_OK) {
-		sr_discard_changes(sess);
 		srp_error(sess, ERRORMSG "Can't apply changes\n");
+		sr_discard_changes(sess);
 		goto err;
 	}
 
@@ -1084,8 +1084,8 @@ int srp_insert(kcontext_t *context)
 	}
 
 	if (sr_apply_changes(sess, 0) != SR_ERR_OK) {
-		sr_discard_changes(sess);
 		srp_error(sess, ERRORMSG "Can't apply changes\n");
+		sr_discard_changes(sess);
 		goto err;
 	}
 
@@ -1392,8 +1392,8 @@ int srp_deactivate(kcontext_t *context)
 		fprintf(stderr, ERRORMSG "Has changes\n");
 
 	if (sr_apply_changes(sess, 0) != SR_ERR_OK) {
-		sr_discard_changes(sess);
 		srp_error(sess, ERRORMSG "Can't apply changes\n");
+		sr_discard_changes(sess);
 	}
 	sr_release_data(data);
 
