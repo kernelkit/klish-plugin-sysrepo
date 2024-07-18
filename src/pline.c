@@ -948,7 +948,15 @@ static void identityref_compl(struct lysc_ident *ident)
 		return;
 
 	if (!ident->derived) {
-		printf("%s\n", ident->name);
+		const char *ptr;
+
+		/* drop any module prefix from completion listings */
+		if ((ptr = strchr(ident->name, ':')))
+			ptr++;
+		else
+			ptr = ident->name;
+
+		printf("%s\n", ptr);
 		return;
 	}
 
