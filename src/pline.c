@@ -700,6 +700,17 @@ static bool_t pline_parse_module(const struct lys_module *module, faux_argv_t *a
 						if (LY_TYPE_IDENT == leaf->type->basetype) {
 							prefix = klysc_identityref_prefix((struct lysc_type_identityref *)
 											  leaf->type, str);
+						} else if (LY_TYPE_UNION == leaf->type->basetype) {
+							struct lysc_type_union *un = (struct lysc_type_union *)leaf->type;
+							LY_ARRAY_COUNT_TYPE u;
+
+							LY_ARRAY_FOR(un->types, u) {
+								if (LY_TYPE_IDENT == un->types[u]->basetype) {
+									prefix = (char *)klysc_identityref_prefix(
+										(struct lysc_type_identityref *)un->types[u], str);
+									break;
+								}
+							}
 						}
 
 						pexpr_xpath_add_list_key(pexpr,
