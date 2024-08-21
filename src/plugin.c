@@ -363,7 +363,8 @@ static int kplugin_sysrepo_init_session(kcontext_t *context)
 		sr_nacm_set_user(udata->sr_sess, user);
 	}
 
-	syslog(LOG_INFO, "Start SysRepo session for \"%s\"", user);
+	sr_log_syslog("klishd", SR_LL_WRN);
+	syslog(LOG_INFO, "user \"%s\" starting interactive sysrepo session.", user);
 
 	return 0;
 }
@@ -388,7 +389,7 @@ static int kplugin_sysrepo_fini_session(kcontext_t *context)
 	}
 	sr_disconnect(udata->sr_conn);
 
-	syslog(LOG_INFO, "Stop SysRepo session for \"%s\"", user ? user : "<unknown>");
+	syslog(LOG_INFO, "user \"%s\" leaving sysrepo session.", user);
 
 	return 0;
 }
