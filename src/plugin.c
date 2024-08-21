@@ -118,6 +118,8 @@ int kplugin_sysrepo_init(kcontext_t *context)
 		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
 	kplugin_add_syms(plugin, ksym_new_ext("srp_reset", srp_reset,
 		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
+	kplugin_add_syms(plugin, ksym_new_ext("srp_rpc", srp_rpc,
+		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
 	kplugin_add_syms(plugin, ksym_new_ext("srp_show_abs", srp_show_abs,
 		KSYM_USERDEFINED_PERMANENT, KSYM_SYNC));
 	kplugin_add_syms(plugin, ksym_new_ext("srp_show", srp_show,
