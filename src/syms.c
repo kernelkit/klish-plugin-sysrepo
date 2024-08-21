@@ -1145,6 +1145,7 @@ int srp_commit(kcontext_t *context)
 		goto err;
 	}
 
+#if 0
 	// Copy running-config to startup-config
 	if (sr_session_switch_ds(sess, SR_DS_STARTUP)) {
 		srp_error(sess, ERRORMSG "Can't connect to startup-config data store\n");
@@ -1154,6 +1155,7 @@ int srp_commit(kcontext_t *context)
 		srp_error(sess, ERRORMSG "Can't store data to startup-config\n");
 		goto err;
 	}
+#endif
 
 	ret = 0;
 err:
