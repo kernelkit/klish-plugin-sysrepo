@@ -551,6 +551,9 @@ static bool_t pline_parse_module(const struct lys_module *module, faux_argv_t *a
 			pexpr_xpath_add_node(pexpr, node->module->name, node->name);
 		}
 
+		if (node && (node->flags & LYS_STATUS_OBSLT))
+			break;
+
 		// Root of the module
 		if (!node) {
 
