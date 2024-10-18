@@ -1349,7 +1349,7 @@ static void pline_print_type_help(const struct lysc_node *node,
 			}
 			if (dflt) {
 				printf("\n\e[1mDEFAULT\e[0m\n");
-				printf("\t%s\n", dflt);
+				printf("\t%s %s\n\n", dflt, units ?: "");
 			} else
 				puts("");
 		} else {
