@@ -549,6 +549,46 @@ LY_DATA_TYPE node_type(sr_session_ctx_t *sess, const char *xpath)
 	return type->basetype;
 }
 
+// Notify user when a leaf node with a default vslue is removed.
+static void notify_on_delete(sr_session_ctx_t *sess, const char *xpath)
+{
+	LY_DATA_TYPE type = LY_TYPE_UNKNOWN;
+	const struct lysc_node *schema;
+	const struct ly_ctx *ctx;
+	const char *dflt = NULL;
+
+	ctx = sr_acquire_context(sr_session_get_connection(sess));
+	if (!ctx)
+		return;
+
+	schema = lys_find_path(ctx, NULL, xpath, 0);
+	if (schema && (schema->nodetype & LYS_LEAF)) {
+		const struct lysc_node_leaf *leaf = (struct lysc_node_leaf *)schema;
+
+		type = leaf->type->basetype;
+		if (leaf->dflt)
+			dflt = lyd_value_get_canonical(ctx, leaf->dflt);
+	}
+
+	sr_release_context(sr_session_get_connection(sess));
+
+	if (dflt && (type == LY_TYPE_BOOL   ||
+		     type == LY_TYPE_INT8   || type == LY_TYPE_INT16  ||
+		     type == LY_TYPE_INT32  || type == LY_TYPE_INT64  ||
+		     type == LY_TYPE_UINT8  || type == LY_TYPE_UINT16 ||
+		     type == LY_TYPE_UINT32 || type == LY_TYPE_UINT64)) {
+		const char *nm;
+
+		nm = strrchr(xpath, '/');
+		if (nm)
+			nm++;
+		else
+			nm = xpath;
+
+		printf("NOTE: %s was reset to its default value: %s\n", nm, dflt);
+	}
+}
+
 static int is_pwd(const char *xpath)
 {
 	if (strstr(xpath, "/ietf-system:password"))
@@ -865,6 +905,7 @@ int srp_del(kcontext_t *context)
 		goto err;
 	}
 
+	notify_on_delete(sess, expr->xpath);
 	ret = 0;
 err:
 	pline_free(pline);
