@@ -655,42 +655,65 @@ int srp_helper(kcontext_t *context)
 			break;
 		}
 
+		if (!expr->xpath) {
+			fprintf(stderr, ERRORMSG "Invalid path specified\n");
+			err_num++;
+			break;
+		}
+
 		omask = umask(0177);
 
 		type = node_type(sess, expr->xpath);
+		if (type == LY_TYPE_UNKNOWN) {
+			fprintf(stderr, ERRORMSG "Path does not exist or is not a leaf node: %s\n", expr->xpath);
+			err_num++;
+			goto fail;
+		}
+
 		if (type == LY_TYPE_BINARY) {
 			char fn[] = "/tmp/editor.XXXXXX";
 			char buf[BUFSIZ];
-			sr_val_t *val;
+			sr_val_t *val = NULL;
 			FILE *fp;
 			int fd;
+			int rc;
 
 			fd = mkstemp(fn);
 			if (fd == -1) {
+//				fprintf(stderr, ERRORMSG "Failed to creating temporary file: %s\n", strerror(errno));
 				err_num++;
 				goto fail;
 			}
 			close(fd);
 
-			if (!sr_get_item(sess, expr->xpath, 0, &val)) {
+			// Try to get existing value from sysrepo
+			rc = sr_get_item(sess, expr->xpath, 0, &val);
+			if (rc == SR_ERR_OK && val) {
 				snprintf(buf, sizeof(buf), "base64 -d > %s", fn);
 				fp = popen(buf, "w");
 				if (!fp) {
-//					fprintf(stderr, ERRORMSG "failed decoding %s\n", fn);
-					/*
-					 * not incrementing err_num, data may be broken,
-					 * give user a chance to mend it
-					 */
-				} else {
-					fputs(val->data.binary_val, fp);
-					pclose(fp);
+//					fprintf(stderr, ERRORMSG "Failed decoding current value: %s\n", strerror(errno));
+					unlink(fn);
+					sr_free_val(val);
+					err_num++;
+					goto fail;
 				}
+				fputs(val->data.binary_val, fp);
+				pclose(fp);
 				sr_free_val(val);
+			} else if (rc != SR_ERR_OK && rc != SR_ERR_NOT_FOUND) {
+				// Error other than "not found" - this is a real problem
+				srp_error(sess, ERRORMSG "Cannot fetch current value\n");
+				unlink(fn);
+				err_num++;
+				goto fail;
 			}
+			// else if SR_ERR_NOT_FOUND, we'll just edit an empty file (new value)
 
 			snprintf(buf, sizeof(buf), "editor %s", fn);
 			if ((ret = run(buf))) {
-//					fprintf(stderr, ERRORMSG "failed '%s' => %d\n", buf, ret);
+//				fprintf(stderr, ERRORMSG "Editor failed or was cancelled (exit code: %d)\n", ret);
+				unlink(fn);
 				err_num++;
 				goto fail;
 			}
@@ -698,20 +721,27 @@ int srp_helper(kcontext_t *context)
 			snprintf(buf, sizeof(buf), "base64 -w 0 %s", fn);
 			fp = popen(buf, "r");
 			if (!fp) {
-//					fprintf(stderr, ERRORMSG "failed encoding %s: %s\n",
-//						fn, strerror(errno));
+//				fprintf(stderr, ERRORMSG "Failed encoding file: %s\n", strerror(errno));
+				unlink(fn);
 				err_num++;
-			} else {
-				if (fgets(buf, sizeof(buf), fp)) {
-					chomp(buf);
-					if (expr->value)
-						free(expr->value);
-					expr->value = strdup(buf);
-				} else
-					err_num++;
-
-				pclose(fp);
+				goto fail;
 			}
+
+			if (fgets(buf, sizeof(buf), fp)) {
+				chomp(buf);
+				if (expr->value)
+					free(expr->value);
+				expr->value = strdup(buf);
+				pclose(fp);
+			} else {
+//				fprintf(stderr, ERRORMSG "Failed reading encoded content\n");
+				pclose(fp);
+				unlink(fn);
+				err_num++;
+				goto fail;
+			}
+
+			unlink(fn);
 		} else if (type == LY_TYPE_STRING && is_pwd(expr->xpath)) {
 			char fn[] = "/tmp/editor.XXXXXX";
 			char buf[256];
@@ -720,6 +750,7 @@ int srp_helper(kcontext_t *context)
 
 			fd = mkstemp(fn);
 			if (fd == -1) {
+//				fprintf(stderr, ERRORMSG "Failed creating temporary file: %s\n", strerror(errno));
 				err_num++;
 				goto fail;
 			}
@@ -727,7 +758,7 @@ int srp_helper(kcontext_t *context)
 
 			snprintf(buf, sizeof(buf), "askpass %s", fn);
 			if ((ret = run(buf))) {
-//					fprintf(stderr, ERRORMSG "failed '%s' => %d\n", buf, ret);
+//				fprintf(stderr, ERRORMSG "Password entry failed or was cancelled (exit code: %d)\n", ret);
 				unlink(fn);
 				err_num++;
 				goto fail;
@@ -735,31 +766,49 @@ int srp_helper(kcontext_t *context)
 
 			fp = fopen(fn, "r");
 			if (!fp) {
-//					fprintf(stderr, ERRORMSG "failed opening %s: %s\n",
-//						fn, strerror(errno));
+//				fprintf(stderr, ERRORMSG "Failed reading password file: %s\n", strerror(errno));
+				unlink(fn);
 				err_num++;
-			} else {
-				if (fgets(buf, sizeof(buf), fp)) {
-					chomp(buf);
-					if (expr->value)
-						free(expr->value);
-					expr->value = strdup(buf);
-				} else
-					err_num++;
+				goto fail;
+			}
+
+			if (fgets(buf, sizeof(buf), fp)) {
+				chomp(buf);
+				if (expr->value)
+					free(expr->value);
+				expr->value = strdup(buf);
 				fclose(fp);
+			} else {
+//				fprintf(stderr, ERRORMSG "Failed reading password from file\n");
+				fclose(fp);
+				unlink(fn);
+				err_num++;
+				goto fail;
 			}
 			unlink(fn);
 		} else {
-			fprintf(stderr, ERRORMSG "no helper available, try set instead.\n");
+			fprintf(stderr, ERRORMSG "No command available for this data type, try 'set' instead.\n");
 			err_num++;
+			goto fail;
 		}
 
 	fail:
 		umask(omask);
 
-		if (sr_set_item_str(sess, expr->xpath, expr->value, NULL, 0)) {
+		// Only try to set the value if we haven't encountered errors
+		if (err_num > 0)
+			break;
+
+		// Ensure we have a value to set
+		if (!expr->value) {
+//			fprintf(stderr, ERRORMSG "No value obtained from helper\n");
 			err_num++;
-			srp_error(sess, ERRORMSG "Failed setting data.\n");
+			break;
+		}
+
+		if (sr_set_item_str(sess, expr->xpath, expr->value, NULL, 0) != SR_ERR_OK) {
+			err_num++;
+			srp_error(sess, ERRORMSG "Failed saving data.\n");
 			break;
 		}
 	}
