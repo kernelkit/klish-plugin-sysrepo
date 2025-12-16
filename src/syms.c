@@ -566,8 +566,8 @@ static void notify_on_delete(sr_session_ctx_t *sess, const char *xpath)
 		const struct lysc_node_leaf *leaf = (struct lysc_node_leaf *)schema;
 
 		type = leaf->type->basetype;
-		if (leaf->dflt)
-			dflt = lyd_value_get_canonical(ctx, leaf->dflt);
+		if (leaf->dflt.str)
+			dflt = leaf->dflt.str;
 	}
 
 	sr_release_context(sr_session_get_connection(sess));
@@ -1282,7 +1282,6 @@ int srp_rpc(kcontext_t *context)
 	size_t icnt = 0, ocnt = 0;
 	sr_val_t *input = NULL;
 	sr_session_ctx_t *sess;
-	sr_conn_ctx_t *conn;
 	const char *xpath;
 	sr_val_t *output;
 	kparg_t *parg;

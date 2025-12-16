@@ -1200,7 +1200,7 @@ static void pline_print_type_help(const struct lysc_node *node,
 	if (node->nodetype & LYS_LEAF) {
 		units = ((struct lysc_node_leaf *)node)->units;
 		if (node->module)
-			dflt = lyd_value_get_canonical(node->module->ctx, ((struct lysc_node_leaf *)node)->dflt);
+			dflt = ((struct lysc_node_leaf *)node)->dflt.str;
 	} else if (node->nodetype & LYS_LEAFLIST)
 		units = ((struct lysc_node_leaflist *)node)->units;
 	else
