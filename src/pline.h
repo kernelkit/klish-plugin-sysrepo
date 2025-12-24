@@ -155,6 +155,7 @@ typedef struct pline_s {
 	bool_t invalid;
 	faux_list_t *exprs;
 	faux_list_t *compls;
+	sr_data_t *candidate_data; // Cached candidate datastore for when evaluation
 } pline_t;
 
 

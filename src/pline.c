@@ -18,6 +18,8 @@
 #include <sysrepo/xpath.h>
 #include <sysrepo/values.h>
 #include <libyang/tree_edit.h>
+#include <libyang/tree_schema.h>
+#include <libyang/tree_data.h>
 
 #include "private.h"
 #include "pline.h"
@@ -172,6 +174,13 @@ pline_t *pline_new(sr_session_ctx_t *sess)
 	pline->compls = faux_list_new(FAUX_LIST_UNSORTED, FAUX_LIST_NONUNIQUE,
 		NULL, NULL, (faux_list_free_fn)pcompl_free);
 
+	/* Fetch candidate datastore for when statement evaluation */
+	pline->candidate_data = NULL;
+	if (sr_get_data(sess, "/*", 0, 0, 0, &pline->candidate_data) != SR_ERR_OK) {
+		syslog(LOG_WARNING, "Failed to fetch candidate data for when evaluation");
+		/* Continue anyway - candidate_data will be NULL, when checks will be skipped */
+	}
+
 	return pline;
 }
 
@@ -183,6 +192,9 @@ void pline_free(pline_t *pline)
 
 	faux_list_free(pline->exprs);
 	faux_list_free(pline->compls);
+
+	if (pline->candidate_data)
+		sr_release_data(pline->candidate_data);
 
 	faux_free(pline);
 }
@@ -236,6 +248,9 @@ static void pline_add_compl(pline_t *pline,
 	faux_list_add(pline->compls, pcompl);
 }
 
+/* Forward declaration for when statement checking */
+static bool_t check_node_when(pline_t *pline, const struct lysc_node *node);
+
 static void pline_add_compl_subtree(pline_t *pline, const struct lys_module *module,
 	const struct lysc_node *node)
 {
@@ -244,6 +259,7 @@ static void pline_add_compl_subtree(pline_t *pline, const struct lys_module *mod
 
 	assert(pline);
 	assert(module);
+
 	if (node)
 		subtree = lysc_node_child(node);
 	else
@@ -259,6 +275,9 @@ static void pline_add_compl_subtree(pline_t *pline, const struct lys_module *mod
 		if (!(iter->flags & LYS_CONFIG_W))
 			continue;
 		if ((iter->nodetype & LYS_LEAF) && (iter->flags & LYS_KEY))
+			continue;
+		/* Check when statements - hide nodes with unsatisfied conditions */
+		if (!check_node_when(pline, iter))
 			continue;
 		if (iter->nodetype & (LYS_CHOICE | LYS_CASE)) {
 			pline_add_compl_subtree(pline, module, iter);
@@ -288,6 +307,109 @@ static void pline_add_compl_subtree(pline_t *pline, const struct lys_module *mod
 
 		pline_add_compl(pline, PCOMPL_NODE, iter, NULL, SRP_REPO_EDIT, pat);
 	}
+}
+
+
+static bool_t check_node_when(pline_t *pline, const struct lysc_node *node)
+{
+	struct lysc_when **when_array = NULL;
+	LY_ARRAY_COUNT_TYPE i;
+	pexpr_t *pexpr = NULL;
+	struct lyd_node *current_data = NULL;
+
+	/* Get when statements from the node */
+	when_array = lysc_node_when(node);
+	if (!when_array)
+		return BOOL_TRUE; /* No when statements, show the node */
+
+	/* If no candidate data available, fail open (show the node) */
+	if (!pline->candidate_data || !pline->candidate_data->tree)
+		return BOOL_TRUE;
+
+	/* Get current xpath context from pline expressions */
+	if (faux_list_len(pline->exprs) > 0) {
+		pexpr = (pexpr_t *)faux_list_data(faux_list_tail(pline->exprs));
+		if (pexpr && pexpr->xpath) {
+			/* Find the current data node in the tree */
+			lyd_find_path(pline->candidate_data->tree, pexpr->xpath, 0, &current_data);
+		}
+	}
+
+	/* If we couldn't find current data node, use root */
+	if (!current_data)
+		current_data = pline->candidate_data->tree;
+
+	/* Evaluate each when statement */
+	LY_ARRAY_FOR(when_array, i) {
+		struct lysc_when *when = when_array[i];
+		const char *xpath = NULL;
+		ly_bool result = 0;
+		LY_ERR err;
+		struct lyd_node *eval_context = current_data;
+
+		/* Get XPath expression as string */
+		xpath = lyxp_get_expr(when->cond);
+		if (!xpath)
+			return BOOL_FALSE;
+
+		/* The when->context tells us the schema context for XPath evaluation.
+		 * For a when like "when '../type = X'" on a container, when->context
+		 * is typically the container itself. We need to find where that would
+		 * be in the data tree (as a child of current_data). */
+		if (when->context && when->context != node) {
+			/* Get the schema path of the context node */
+			char *ctx_schema_path = lysc_path(when->context, LYSC_PATH_DATA, NULL, 0);
+			if (ctx_schema_path && pexpr && pexpr->xpath) {
+				/* Try to construct the data path by combining current path with context */
+				char *ctx_data_path = NULL;
+				/* The context might be a parent of current node.
+				 * Try to find it in the data tree */
+				lyd_find_path(pline->candidate_data->tree, ctx_data_path ? ctx_data_path : ctx_schema_path, 0, &eval_context);
+				free(ctx_data_path);
+			}
+			free(ctx_schema_path);
+
+			if (!eval_context)
+				eval_context = current_data;
+		}
+
+		/* Evaluate when condition using current data node as context.
+		 * Use lyd_eval_xpath3 which supports module context and prefixes */
+		err = lyd_eval_xpath3(eval_context, node->module, xpath, LY_VALUE_SCHEMA_RESOLVED,
+		                      when->prefixes, NULL, &result);
+		if (err != LY_SUCCESS)
+			return BOOL_FALSE;
+
+		/* If any when condition is false, check if node has data */
+		if (!result) {
+
+			/* Before hiding, check if this node has configured data.
+			 * If it does, show it anyway so user can see/delete orphaned config */
+			if (pexpr && pexpr->xpath) {
+				char *node_data_path = NULL;
+				struct lyd_node *node_data = NULL;
+				const char *module_name = node->module->name;
+				const char *node_local_name = node->name;
+
+				/* Construct full data path: current_context/module:nodename */
+				if (asprintf(&node_data_path, "%s/%s:%s",
+				             pexpr->xpath, module_name, node_local_name) > 0) {
+					/* Check if data exists at this path */
+					if (lyd_find_path(pline->candidate_data->tree, node_data_path,
+					                  0, &node_data) == LY_SUCCESS && node_data) {
+						free(node_data_path);
+						return BOOL_TRUE;  /* Show node because it has configured data */
+					}
+					free(node_data_path);
+				}
+			}
+
+			return BOOL_FALSE;  /* When false and no data, hide it */
+		}
+	}
+
+	/* All when statements satisfied */
+	return BOOL_TRUE;
 }
 
 
