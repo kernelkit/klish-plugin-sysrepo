@@ -174,11 +174,17 @@ pline_t *pline_new(sr_session_ctx_t *sess)
 	pline->compls = faux_list_new(FAUX_LIST_UNSORTED, FAUX_LIST_NONUNIQUE,
 		NULL, NULL, (faux_list_free_fn)pcompl_free);
 
-	/* Fetch candidate datastore for when statement evaluation */
+	/* Fetch candidate datastore for when/must statement evaluation */
 	pline->candidate_data = NULL;
 	if (sr_get_data(sess, "/*", 0, 0, 0, &pline->candidate_data) != SR_ERR_OK) {
-		syslog(LOG_WARNING, "Failed to fetch candidate data for when evaluation");
-		/* Continue anyway - candidate_data will be NULL, when checks will be skipped */
+		syslog(LOG_WARNING, "Failed to fetch candidate data for when/must evaluation");
+		/* Continue anyway - candidate_data will be NULL, when/must checks will be skipped */
+	} else if (pline->candidate_data && pline->candidate_data->tree) {
+		/* Add default values to the data tree for proper when/must evaluation.
+		 * LYD_VALIDATE_PRESENT means only validate what's already there, adding defaults. */
+		if (lyd_validate_all(&pline->candidate_data->tree, NULL, LYD_VALIDATE_PRESENT, NULL) != LY_SUCCESS) {
+			syslog(LOG_WARNING, "Failed to validate candidate data for default values");
+		}
 	}
 
 	return pline;
