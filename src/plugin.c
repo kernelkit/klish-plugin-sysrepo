@@ -348,13 +348,18 @@ static int kplugin_sysrepo_init_session(kcontext_t *context)
 		syslog(LOG_ERR, "Can't connect to Sysrepo");
 		return -1;
 	}
-	if (sr_session_start(udata->sr_conn, SRP_REPO_EDIT, &(udata->sr_sess))) {
+
+	// Start session on running datastore for NACM initialization
+	if (sr_session_start(udata->sr_conn, SR_DS_RUNNING, &(udata->sr_sess))) {
 		syslog(LOG_ERR, "Can't connect create Sysrepo session");
 		sr_disconnect(udata->sr_conn);
 		return -1;
 	}
+
+	// Set event originator name used for all events sent on this session.
 	sr_session_set_orig_name(udata->sr_sess, user);
-	// Init NACM session
+
+	// Init NACM on running datastore
 	if (udata->opts.enable_nacm) {
 		if (sr_nacm_init(udata->sr_sess, 0, &(udata->nacm_sub)) != SR_ERR_OK) {
 			sr_disconnect(udata->sr_conn);
@@ -362,6 +367,9 @@ static int kplugin_sysrepo_init_session(kcontext_t *context)
 		}
 		sr_nacm_set_user(udata->sr_sess, user);
 	}
+
+	// Switch to candidate datastore for all editing operations
+	sr_session_switch_ds(udata->sr_sess, SRP_REPO_EDIT);
 
 	sr_log_syslog("klishd", SR_LL_WRN);
 	syslog(LOG_INFO, "user \"%s\" starting interactive sysrepo session.", user);
