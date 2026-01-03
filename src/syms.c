@@ -213,6 +213,69 @@ int srp_help_insert(kcontext_t *context)
 }
 
 
+/*
+ * Shorten a path for prompt display if it exceeds the threshold.
+ * Keeps first element and last 3 elements, replaces middle with /…/
+ * This prioritizes showing the deepest (most relevant) context.
+ */
+static char *shorten_path_for_prompt(const faux_argv_t *path)
+{
+	const size_t MAX_PROMPT_PATH_LEN = 20;
+	const size_t KEEP_FIRST = 1;
+	const size_t KEEP_LAST = 3;
+	char *full_path = NULL;
+	char *result = NULL;
+	faux_argv_node_t *iter = NULL;
+	const char *arg = NULL;
+	size_t idx = 0;
+	size_t len = 0;
+	bool_t ellipsis_added = BOOL_FALSE;
+
+	if (!path)
+		return NULL;
+
+	// Build full path string to check length
+	iter = faux_argv_iter(path);
+	while ((arg = faux_argv_each(&iter))) {
+		faux_str_cat(&full_path, "/");
+		faux_str_cat(&full_path, arg);
+	}
+
+	if (!full_path)
+		return NULL;
+
+	// If short enough or too few elements, return as-is
+	len = faux_argv_len(path);
+	if (strlen(full_path) <= MAX_PROMPT_PATH_LEN || len <= (KEEP_FIRST + KEEP_LAST)) {
+		return full_path;
+	}
+
+	// Need to shorten: build new string with ellipsis
+	faux_str_free(full_path);
+
+	iter = faux_argv_iter(path);
+	while ((arg = faux_argv_each(&iter))) {
+		if (idx < KEEP_FIRST) {
+			// Keep first N elements
+			faux_str_cat(&result, "/");
+			faux_str_cat(&result, arg);
+		} else if (idx >= len - KEEP_LAST) {
+			// Add ellipsis before last N elements
+			if (!ellipsis_added) {
+				faux_str_cat(&result, "/…");
+				ellipsis_added = BOOL_TRUE;
+			}
+			faux_str_cat(&result, "/");
+			faux_str_cat(&result, arg);
+		}
+		// Skip middle elements
+		idx++;
+	}
+
+	return result;
+}
+
+
 int srp_prompt_edit_path(kcontext_t *context)
 {
 	faux_argv_t *cur_path = NULL;
@@ -222,7 +285,7 @@ int srp_prompt_edit_path(kcontext_t *context)
 
 	cur_path = (faux_argv_t *)srp_udata_path(context);
 	if (cur_path)
-		path = faux_argv_line(cur_path);
+		path = shorten_path_for_prompt(cur_path);
 	printf("[edit%s%s]\n", path ? " " : "", path ? path : "");
 	faux_str_free(path);
 
@@ -284,13 +347,10 @@ int srp_prompt(kcontext_t *context)
 			case 'x':
 				cur_path = (faux_argv_t *)srp_udata_path(context);
 				if (cur_path) {
-					faux_argv_node_t *iter;
-					const char *arg;
-
-					iter = faux_argv_iter(cur_path);
-					while ((arg = faux_argv_each(&iter))) {
-						faux_str_cat(&prompt, "/");
-						faux_str_cat(&prompt, arg);
+					char *path_str = shorten_path_for_prompt(cur_path);
+					if (path_str) {
+						faux_str_cat(&prompt, path_str);
+						faux_str_free(path_str);
 					}
 				}
 				break;
