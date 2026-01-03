@@ -28,3 +28,8 @@
 /cov-int
 /klish-plugin-sysrepo*.tar*
 /*.tgz
+
+# Development notes (not for commit)
+/.notes
+/.claude
+/CLAUDE.md
