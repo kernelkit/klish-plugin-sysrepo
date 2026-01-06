@@ -181,10 +181,12 @@ pline_t *pline_new(sr_session_ctx_t *sess)
 		/* Continue anyway - candidate_data will be NULL, when/must checks will be skipped */
 	} else if (pline->candidate_data && pline->candidate_data->tree) {
 		/* Add default values to the data tree for proper when/must evaluation.
-		 * LYD_VALIDATE_PRESENT means only validate what's already there, adding defaults. */
-		if (lyd_validate_all(&pline->candidate_data->tree, NULL, LYD_VALIDATE_PRESENT, NULL) != LY_SUCCESS) {
-			syslog(LOG_WARNING, "Failed to validate candidate data for default values");
-		}
+		 * LYD_VALIDATE_PRESENT only validates existing data and adds defaults.
+		 * LYD_VALIDATE_MULTI_ERROR continues adding defaults even on errors.
+		 * Ignore return value - we'll get all defaults even if some modules have errors.
+		 * This only adds defaults to nodes that already exist in candidate data.
+		 * For new containers being created, defaults are added in check_node_when(). */
+		lyd_validate_all(&pline->candidate_data->tree, NULL, LYD_VALIDATE_PRESENT | LYD_VALIDATE_MULTI_ERROR, NULL);
 	}
 
 	return pline;
@@ -322,6 +324,7 @@ static bool_t check_node_when(pline_t *pline, const struct lysc_node *node)
 	LY_ARRAY_COUNT_TYPE i;
 	pexpr_t *pexpr = NULL;
 	struct lyd_node *current_data = NULL;
+	struct lyd_node *temp_tree_root = NULL;
 
 	/* Get when statements from the node */
 	when_array = lysc_node_when(node);
@@ -337,7 +340,17 @@ static bool_t check_node_when(pline_t *pline, const struct lysc_node *node)
 		pexpr = (pexpr_t *)faux_list_data(faux_list_tail(pline->exprs));
 		if (pexpr && pexpr->xpath) {
 			/* Find the current data node in the tree */
-			lyd_find_path(pline->candidate_data->tree, pexpr->xpath, 0, &current_data);
+			if (lyd_find_path(pline->candidate_data->tree, pexpr->xpath, 0, &current_data) != LY_SUCCESS) {
+				/* Current context doesn't exist in data yet.
+				 * Create a temporary tree with defaults for when expression evaluation. */
+				const struct ly_ctx *ctx = sr_session_acquire_context(pline->sess);
+				if (lyd_new_path(NULL, ctx, pexpr->xpath, NULL, 0, &temp_tree_root) == LY_SUCCESS &&
+				    lyd_find_path(temp_tree_root, pexpr->xpath, 0, &current_data) == LY_SUCCESS) {
+					/* Add default values to this subtree */
+					lyd_new_implicit_tree(current_data, LYD_IMPLICIT_NO_STATE, NULL);
+				}
+				sr_session_release_context(pline->sess);
+			}
 		}
 	}
 
@@ -345,13 +358,26 @@ static bool_t check_node_when(pline_t *pline, const struct lysc_node *node)
 	if (!current_data)
 		current_data = pline->candidate_data->tree;
 
+	/* If we have a temp tree, create a temporary instance of the node we're checking
+	 * so we can evaluate the when expression from its perspective */
+	struct lyd_node *temp_node = NULL;
+	if (temp_tree_root && pexpr && pexpr->xpath) {
+		char *node_path = NULL;
+		asprintf(&node_path, "%s/%s:%s", pexpr->xpath, node->module->name, node->name);
+		if (node_path) {
+			/* Create a dummy node for evaluation context */
+			lyd_new_path(temp_tree_root, NULL, node_path, "", 0, &temp_node);
+			free(node_path);
+		}
+	}
+
 	/* Evaluate each when statement */
 	LY_ARRAY_FOR(when_array, i) {
 		struct lysc_when *when = when_array[i];
 		const char *xpath = NULL;
 		ly_bool result = 0;
 		LY_ERR err;
-		struct lyd_node *eval_context = current_data;
+		struct lyd_node *eval_context = temp_node ? temp_node : current_data;
 
 		/* Get XPath expression as string */
 		xpath = lyxp_get_expr(when->cond);
@@ -369,8 +395,9 @@ static bool_t check_node_when(pline_t *pline, const struct lysc_node *node)
 				/* Try to construct the data path by combining current path with context */
 				char *ctx_data_path = NULL;
 				/* The context might be a parent of current node.
-				 * Try to find it in the data tree */
-				lyd_find_path(pline->candidate_data->tree, ctx_data_path ? ctx_data_path : ctx_schema_path, 0, &eval_context);
+				 * Try to find it in the data tree - use temp tree if available */
+				struct lyd_node *search_root = temp_tree_root ? temp_tree_root : pline->candidate_data->tree;
+				lyd_find_path(search_root, ctx_data_path ? ctx_data_path : ctx_schema_path, 0, &eval_context);
 				free(ctx_data_path);
 			}
 			free(ctx_schema_path);
@@ -383,17 +410,21 @@ static bool_t check_node_when(pline_t *pline, const struct lysc_node *node)
 		 * Use lyd_eval_xpath3 which supports module context and prefixes */
 		err = lyd_eval_xpath3(eval_context, node->module, xpath, LY_VALUE_SCHEMA_RESOLVED,
 		                      when->prefixes, NULL, &result);
-		if (err != LY_SUCCESS)
+		if (err != LY_SUCCESS) {
+			if (temp_tree_root)
+				lyd_free_tree(temp_tree_root);
 			return BOOL_FALSE;
+		}
 
-		/* If any when condition is false, check if node has data */
+		/* If any when condition is false, perform additional checks before hiding.
+		 * Even with temp tree and defaults, expressions can legitimately evaluate to false. */
 		if (!result) {
-
 			/* Before hiding, check if this node has configured data.
-			 * If it does, show it anyway so user can see/delete orphaned config */
+			 * If it does, show it anyway so user can see/delete orphaned config. */
 			if (pexpr && pexpr->xpath) {
 				char *node_data_path = NULL;
 				struct lyd_node *node_data = NULL;
+				struct lyd_node *context_data = NULL;
 				const char *module_name = node->module->name;
 				const char *node_local_name = node->name;
 
@@ -404,15 +435,32 @@ static bool_t check_node_when(pline_t *pline, const struct lysc_node *node)
 					if (lyd_find_path(pline->candidate_data->tree, node_data_path,
 					                  0, &node_data) == LY_SUCCESS && node_data) {
 						free(node_data_path);
+						if (temp_tree_root)
+							lyd_free_tree(temp_tree_root);
 						return BOOL_TRUE;  /* Show node because it has configured data */
 					}
 					free(node_data_path);
 				}
+
+				/* Check if current context exists in candidate data tree */
+				if (lyd_find_path(pline->candidate_data->tree, pexpr->xpath, 0, &context_data) != LY_SUCCESS || !context_data) {
+					/* Current context doesn't exist in real data - user is creating new config.
+					 * Fail-open: show the node to allow config creation. */
+					if (temp_tree_root)
+						lyd_free_tree(temp_tree_root);
+					return BOOL_TRUE;
+				}
 			}
 
-			return BOOL_FALSE;  /* When false and no data, hide it */
+			if (temp_tree_root)
+				lyd_free_tree(temp_tree_root);
+			return BOOL_FALSE;  /* When false and context exists, hide it */
 		}
 	}
+
+	/* Clean up temporary tree if we created one */
+	if (temp_tree_root)
+		lyd_free_tree(temp_tree_root);
 
 	/* All when statements satisfied */
 	return BOOL_TRUE;
