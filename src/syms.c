@@ -591,22 +591,25 @@ cleanup:
 
 LY_DATA_TYPE node_type(sr_session_ctx_t *sess, const char *xpath)
 {
+	LY_DATA_TYPE rc = LY_TYPE_UNKNOWN;
 	const struct lysc_node *schema;
 	const struct lysc_type *type;
 	const struct ly_ctx *ctx;
+	sr_conn_ctx_t *conn;
 
-	ctx = sr_acquire_context(sr_session_get_connection(sess));
-	if (!ctx)
-		return LY_TYPE_UNKNOWN;
+	conn = sr_session_get_connection(sess);
+	ctx = sr_acquire_context(conn);
+	if (ctx) {
+		schema = lys_find_path(ctx, NULL, xpath, 0);
+		if (schema && (schema->nodetype & LYS_LEAF)) {
+			type = ((const struct lysc_node_leaf *)schema)->type;
+			if (type)
+				rc = type->basetype;
+		}
+		sr_release_context(conn);
+	}
 
-	schema = lys_find_path(ctx, NULL, xpath, 0);
-	if (!schema || !(schema->nodetype & LYS_LEAF))
-		return LY_TYPE_UNKNOWN;
-
-	type = ((const struct lysc_node_leaf *)schema)->type;
-	sr_release_context(sr_session_get_connection(sess));
-
-	return type->basetype;
+	return rc;
 }
 
 // Notify user when a leaf node with a default vslue is removed.
@@ -616,8 +619,10 @@ static void notify_on_delete(sr_session_ctx_t *sess, const char *xpath)
 	const struct lysc_node *schema;
 	const struct ly_ctx *ctx;
 	const char *dflt = NULL;
+	sr_conn_ctx_t *conn;
 
-	ctx = sr_acquire_context(sr_session_get_connection(sess));
+	conn = sr_session_get_connection(sess);
+	ctx = sr_acquire_context(conn);
 	if (!ctx)
 		return;
 
@@ -630,7 +635,7 @@ static void notify_on_delete(sr_session_ctx_t *sess, const char *xpath)
 			dflt = leaf->dflt.str;
 	}
 
-	sr_release_context(sr_session_get_connection(sess));
+	sr_release_context(conn);
 
 	if (dflt && (type == LY_TYPE_BOOL   ||
 		     type == LY_TYPE_INT8   || type == LY_TYPE_INT16  ||
