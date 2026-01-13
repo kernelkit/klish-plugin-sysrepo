@@ -589,6 +589,30 @@ cleanup:
 	return ret;
 }
 
+static char *mktmp(void)
+{
+	mode_t oldmask;
+	char *path;
+	int fd;
+
+	path = strdup("/tmp/copy-XXXXXX");
+	if (!path)
+		goto err;
+
+	oldmask = umask(0077);
+	fd = mkstemp(path);
+	umask(oldmask);
+
+	if (fd < 0)
+		goto err;
+
+	close(fd);
+	return path;
+err:
+	free(path);
+	return NULL;
+}
+
 LY_DATA_TYPE node_type(sr_session_ctx_t *sess, const char *xpath)
 {
 	LY_DATA_TYPE rc = LY_TYPE_UNKNOWN;
@@ -712,7 +736,7 @@ int srp_helper(kcontext_t *context)
 	iter = faux_list_head(pline->exprs);
 	while ((expr = (pexpr_t *)faux_list_each(&iter))) {
 		LY_DATA_TYPE type;
-		mode_t omask;
+		char *fn = NULL;
 
 		if (expr->pat & PT_SET) {
 			fprintf(stderr, ERRORMSG "command does not take value, try 'set key value'\n");
@@ -726,8 +750,6 @@ int srp_helper(kcontext_t *context)
 			break;
 		}
 
-		omask = umask(0177);
-
 		type = node_type(sess, expr->xpath);
 		if (type == LY_TYPE_UNKNOWN) {
 			fprintf(stderr, ERRORMSG "Path does not exist or is not a leaf node: %s\n", expr->xpath);
@@ -736,19 +758,16 @@ int srp_helper(kcontext_t *context)
 		}
 
 		if (type == LY_TYPE_BINARY) {
-			char fn[] = "/tmp/editor.XXXXXX";
 			char buf[BUFSIZ];
 			sr_val_t *val = NULL;
 			FILE *fp;
-			int fd;
 			int rc;
 
-			fd = mkstemp(fn);
-			if (fd == -1) {
+			fn = mktmp();
+			if (!fn) {
 				err_num++;
 				goto fail;
 			}
-			close(fd);
 
 			// Try to get existing value from sysrepo
 			rc = sr_get_item(sess, expr->xpath, 0, &val);
@@ -756,7 +775,6 @@ int srp_helper(kcontext_t *context)
 				snprintf(buf, sizeof(buf), "base64 -d > %s", fn);
 				fp = popen(buf, "w");
 				if (!fp) {
-					unlink(fn);
 					sr_free_val(val);
 					err_num++;
 					goto fail;
@@ -767,7 +785,6 @@ int srp_helper(kcontext_t *context)
 			} else if (rc != SR_ERR_OK && rc != SR_ERR_NOT_FOUND) {
 				// Error other than "not found" - this is a real problem
 				srp_error(sess, ERRORMSG "Cannot fetch current value\n");
-				unlink(fn);
 				err_num++;
 				goto fail;
 			}
@@ -775,7 +792,6 @@ int srp_helper(kcontext_t *context)
 
 			snprintf(buf, sizeof(buf), "editor %s", fn);
 			if ((ret = run(buf))) {
-				unlink(fn);
 				err_num++;
 				goto fail;
 			}
@@ -783,7 +799,6 @@ int srp_helper(kcontext_t *context)
 			snprintf(buf, sizeof(buf), "base64 -w 0 %s", fn);
 			fp = popen(buf, "r");
 			if (!fp) {
-				unlink(fn);
 				err_num++;
 				goto fail;
 			}
@@ -796,35 +811,27 @@ int srp_helper(kcontext_t *context)
 				pclose(fp);
 			} else {
 				pclose(fp);
-				unlink(fn);
 				err_num++;
 				goto fail;
 			}
-
-			unlink(fn);
 		} else if (type == LY_TYPE_STRING && is_pwd(expr->xpath)) {
-			char fn[] = "/tmp/editor.XXXXXX";
 			char buf[256];
 			FILE *fp;
-			int fd;
 
-			fd = mkstemp(fn);
-			if (fd == -1) {
+			fn = mktmp();
+			if (!fn) {
 				err_num++;
 				goto fail;
 			}
-			close(fd);
 
 			snprintf(buf, sizeof(buf), "askpass %s", fn);
 			if ((ret = run(buf))) {
-				unlink(fn);
 				err_num++;
 				goto fail;
 			}
 
 			fp = fopen(fn, "r");
 			if (!fp) {
-				unlink(fn);
 				err_num++;
 				goto fail;
 			}
@@ -837,11 +844,9 @@ int srp_helper(kcontext_t *context)
 				fclose(fp);
 			} else {
 				fclose(fp);
-				unlink(fn);
 				err_num++;
 				goto fail;
 			}
-			unlink(fn);
 		} else {
 			fprintf(stderr, ERRORMSG "No command available for this data type, try 'set' instead.\n");
 			err_num++;
@@ -849,7 +854,10 @@ int srp_helper(kcontext_t *context)
 		}
 
 	fail:
-		umask(omask);
+		if (fn) {
+			unlink(fn);
+			free(fn);
+		}
 
 		// Only try to set the value if we haven't encountered errors
 		if (err_num > 0)
