@@ -218,7 +218,7 @@ int srp_help_insert(kcontext_t *context)
  * Keeps first element and last 3 elements, replaces middle with /…/
  * This prioritizes showing the deepest (most relevant) context.
  */
-static char *shorten_path_for_prompt(const faux_argv_t *path)
+static char *shorten_path_for_prompt(faux_argv_t *path)
 {
 	const size_t MAX_PROMPT_PATH_LEN = 20;
 	const size_t KEEP_FIRST = 1;
@@ -667,7 +667,7 @@ static int run(const char *cmd)
 	char command[strlen(cmd) +  32];
 	int rc;
 
-	snprintf(command, sizeof(command), "env CLISH=yes /bin/sh -il -c '%s'", cmd);
+	snprintf(command, sizeof(command), "env CLISH=yes /bin/sh -c '%s'", cmd);
 	rc = system(command);
 	if (rc == -1)
 		return -1;
@@ -745,7 +745,6 @@ int srp_helper(kcontext_t *context)
 
 			fd = mkstemp(fn);
 			if (fd == -1) {
-//				fprintf(stderr, ERRORMSG "Failed to creating temporary file: %s\n", strerror(errno));
 				err_num++;
 				goto fail;
 			}
@@ -757,7 +756,6 @@ int srp_helper(kcontext_t *context)
 				snprintf(buf, sizeof(buf), "base64 -d > %s", fn);
 				fp = popen(buf, "w");
 				if (!fp) {
-//					fprintf(stderr, ERRORMSG "Failed decoding current value: %s\n", strerror(errno));
 					unlink(fn);
 					sr_free_val(val);
 					err_num++;
@@ -777,7 +775,6 @@ int srp_helper(kcontext_t *context)
 
 			snprintf(buf, sizeof(buf), "editor %s", fn);
 			if ((ret = run(buf))) {
-//				fprintf(stderr, ERRORMSG "Editor failed or was cancelled (exit code: %d)\n", ret);
 				unlink(fn);
 				err_num++;
 				goto fail;
@@ -786,7 +783,6 @@ int srp_helper(kcontext_t *context)
 			snprintf(buf, sizeof(buf), "base64 -w 0 %s", fn);
 			fp = popen(buf, "r");
 			if (!fp) {
-//				fprintf(stderr, ERRORMSG "Failed encoding file: %s\n", strerror(errno));
 				unlink(fn);
 				err_num++;
 				goto fail;
@@ -799,7 +795,6 @@ int srp_helper(kcontext_t *context)
 				expr->value = strdup(buf);
 				pclose(fp);
 			} else {
-//				fprintf(stderr, ERRORMSG "Failed reading encoded content\n");
 				pclose(fp);
 				unlink(fn);
 				err_num++;
@@ -815,7 +810,6 @@ int srp_helper(kcontext_t *context)
 
 			fd = mkstemp(fn);
 			if (fd == -1) {
-//				fprintf(stderr, ERRORMSG "Failed creating temporary file: %s\n", strerror(errno));
 				err_num++;
 				goto fail;
 			}
@@ -823,7 +817,6 @@ int srp_helper(kcontext_t *context)
 
 			snprintf(buf, sizeof(buf), "askpass %s", fn);
 			if ((ret = run(buf))) {
-//				fprintf(stderr, ERRORMSG "Password entry failed or was cancelled (exit code: %d)\n", ret);
 				unlink(fn);
 				err_num++;
 				goto fail;
@@ -831,7 +824,6 @@ int srp_helper(kcontext_t *context)
 
 			fp = fopen(fn, "r");
 			if (!fp) {
-//				fprintf(stderr, ERRORMSG "Failed reading password file: %s\n", strerror(errno));
 				unlink(fn);
 				err_num++;
 				goto fail;
@@ -844,7 +836,6 @@ int srp_helper(kcontext_t *context)
 				expr->value = strdup(buf);
 				fclose(fp);
 			} else {
-//				fprintf(stderr, ERRORMSG "Failed reading password from file\n");
 				fclose(fp);
 				unlink(fn);
 				err_num++;
@@ -866,7 +857,6 @@ int srp_helper(kcontext_t *context)
 
 		// Ensure we have a value to set
 		if (!expr->value) {
-//			fprintf(stderr, ERRORMSG "No value obtained from helper\n");
 			err_num++;
 			break;
 		}
@@ -943,8 +933,7 @@ int srp_set(kcontext_t *context)
 			}
 		}
 
-		if (sr_set_item_str(sess, expr->xpath, expr->value, NULL, 0) !=
-			SR_ERR_OK) {
+		if (sr_set_item_str(sess, expr->xpath, expr->value, NULL, 0) != SR_ERR_OK) {
 			err_num++;
 			srp_error(sess, ERRORMSG "Failed setting data.\n");
 			break;
