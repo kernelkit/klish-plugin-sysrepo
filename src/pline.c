@@ -335,39 +335,75 @@ static bool_t check_node_when(pline_t *pline, const struct lysc_node *node)
 	if (!pline->candidate_data || !pline->candidate_data->tree)
 		return BOOL_TRUE;
 
-	/* Get current xpath context from pline expressions */
+	/* Get current xpath context from pline expressions. */
 	if (faux_list_len(pline->exprs) > 0) {
 		pexpr = (pexpr_t *)faux_list_data(faux_list_tail(pline->exprs));
 		if (pexpr && pexpr->xpath) {
-			/* Find the current data node in the tree */
+			/* Check if context exists in candidate data */
 			if (lyd_find_path(pline->candidate_data->tree, pexpr->xpath, 0, &current_data) != LY_SUCCESS) {
-				/* Current context doesn't exist in data yet.
-				 * Create a temporary tree with defaults for when expression evaluation. */
+				/* Context doesn't exist - create temp tree with defaults */
 				const struct ly_ctx *ctx = sr_session_acquire_context(pline->sess);
 				if (lyd_new_path(NULL, ctx, pexpr->xpath, NULL, 0, &temp_tree_root) == LY_SUCCESS &&
 				    lyd_find_path(temp_tree_root, pexpr->xpath, 0, &current_data) == LY_SUCCESS) {
-					/* Add default values to this subtree */
-					lyd_new_implicit_tree(current_data, LYD_IMPLICIT_NO_STATE, NULL);
+					/* Add default values to ensure sibling leaves with defaults exist.
+					 * Use lyd_new_implicit_all on the tree root to ensure defaults
+					 * are added even to non-presence containers like 'security'. */
+					lyd_new_implicit_all(&temp_tree_root, ctx, LYD_IMPLICIT_NO_STATE, NULL);
 				}
 				sr_session_release_context(pline->sess);
 			}
 		}
 	}
 
-	/* If we couldn't find current data node, use root */
-	if (!current_data)
-		current_data = pline->candidate_data->tree;
+	/* If we couldn't find or create current data node, fail open */
+	if (!current_data) {
+		if (temp_tree_root)
+			lyd_free_tree(temp_tree_root);
+		return BOOL_TRUE;
+	}
 
-	/* If we have a temp tree, create a temporary instance of the node we're checking
-	 * so we can evaluate the when expression from its perspective */
+	/* Create a temporary instance of the node we're checking so we can evaluate
+	 * the when expression from its perspective. Without this, XPath like "../mode"
+	 * would look for a sibling of the parent (security), not a sibling of the
+	 * node (secret). */
 	struct lyd_node *temp_node = NULL;
-	if (temp_tree_root && pexpr && pexpr->xpath) {
-		char *node_path = NULL;
-		asprintf(&node_path, "%s/%s:%s", pexpr->xpath, node->module->name, node->name);
-		if (node_path) {
-			/* Create a dummy node for evaluation context */
-			lyd_new_path(temp_tree_root, NULL, node_path, "", 0, &temp_node);
-			free(node_path);
+
+	/* First check if node already exists as a child */
+	struct lyd_node *child;
+	LY_LIST_FOR(lyd_child(current_data), child) {
+		if (child->schema == node) {
+			temp_node = child;
+			break;
+		}
+	}
+
+	/* If node doesn't exist in data, we need to create a temp node for evaluation.
+	 * If we have a temp tree, attach to it. Otherwise create a standalone temp tree. */
+	if (!temp_node) {
+		if (temp_tree_root) {
+			/* Attach opaque node to temp tree (safe, won't modify candidate data) */
+			lyd_new_opaq(current_data, NULL, node->name, NULL, NULL, node->module->name, &temp_node);
+		} else {
+			/* Context exists in candidate data but node doesn't - create standalone temp tree
+			 * just for evaluation to avoid modifying candidate data */
+			const struct ly_ctx *ctx = sr_session_acquire_context(pline->sess);
+			if (lyd_new_path(NULL, ctx, pexpr->xpath, NULL, 0, &temp_tree_root) == LY_SUCCESS) {
+				struct lyd_node *temp_parent = NULL;
+				if (lyd_find_path(temp_tree_root, pexpr->xpath, 0, &temp_parent) == LY_SUCCESS) {
+					/* Copy existing children from candidate to temp tree for accurate evaluation */
+					struct lyd_node *src_child;
+					LY_LIST_FOR(lyd_child(current_data), src_child) {
+						lyd_dup_single(src_child, (struct lyd_node_inner *)temp_parent, LYD_DUP_WITH_FLAGS, NULL);
+					}
+					/* Add defaults for any missing children */
+					lyd_new_implicit_all(&temp_tree_root, ctx, LYD_IMPLICIT_NO_STATE, NULL);
+					/* Create opaque node for the node we're checking */
+					lyd_new_opaq(temp_parent, NULL, node->name, NULL, NULL, node->module->name, &temp_node);
+					/* Update current_data to point to temp tree so fallback works correctly */
+					current_data = temp_parent;
+				}
+			}
+			sr_session_release_context(pline->sess);
 		}
 	}
 
@@ -381,29 +417,32 @@ static bool_t check_node_when(pline_t *pline, const struct lysc_node *node)
 
 		/* Get XPath expression as string */
 		xpath = lyxp_get_expr(when->cond);
-		if (!xpath)
+		if (!xpath) {
+			if (temp_tree_root)
+				lyd_free_tree(temp_tree_root);
 			return BOOL_FALSE;
+		}
 
 		/* The when->context tells us the schema context for XPath evaluation.
-		 * For a when like "when '../type = X'" on a container, when->context
-		 * is typically the container itself. We need to find where that would
-		 * be in the data tree (as a child of current_data). */
+		 * For augment when expressions, when->context is the augment target (parent).
+		 * For node when expressions, when->context is the node itself. */
 		if (when->context && when->context != node) {
-			/* Get the schema path of the context node */
-			char *ctx_schema_path = lysc_path(when->context, LYSC_PATH_DATA, NULL, 0);
-			if (ctx_schema_path && pexpr && pexpr->xpath) {
-				/* Try to construct the data path by combining current path with context */
-				char *ctx_data_path = NULL;
-				/* The context might be a parent of current node.
-				 * Try to find it in the data tree - use temp tree if available */
-				struct lyd_node *search_root = temp_tree_root ? temp_tree_root : pline->candidate_data->tree;
-				lyd_find_path(search_root, ctx_data_path ? ctx_data_path : ctx_schema_path, 0, &eval_context);
-				free(ctx_data_path);
+			/* This is an augment when expression - context is the parent node.
+			 * Use the parent data from candidate datastore directly, as the
+			 * when expression evaluates from the parent's perspective.
+			 * Try to find it using pexpr->xpath which points to the parent. */
+			struct lyd_node *parent_data = NULL;
+			if (pexpr && pexpr->xpath) {
+				lyd_find_path(pline->candidate_data->tree, pexpr->xpath, 0, &parent_data);
 			}
-			free(ctx_schema_path);
-
-			if (!eval_context)
-				eval_context = current_data;
+			if (parent_data) {
+				eval_context = parent_data;
+			} else {
+				/* Parent not in candidate data - fail open for new config */
+				if (temp_tree_root)
+					lyd_free_tree(temp_tree_root);
+				return BOOL_TRUE;
+			}
 		}
 
 		/* Evaluate when condition using current data node as context.
