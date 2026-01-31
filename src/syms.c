@@ -686,6 +686,14 @@ static int is_pwd(const char *xpath)
 	return 0;
 }
 
+static int is_passphrase(const char *xpath)
+{
+	if (strstr(xpath, "/ietf-keystore:cleartext-symmetric-key"))
+		return 1;
+
+	return 0;
+}
+
 static int run(const char *cmd)
 {
 	char command[strlen(cmd) +  32];
@@ -705,19 +713,67 @@ static int run(const char *cmd)
 }
 
 /*
+ * Run a command that writes its result to a temp file, read back the
+ * result, and store it in expr->value.  Used by srp_helper() for
+ * password hashing (askpass) and passphrase encoding (askpassphrase).
+ */
+static int run_helper(pexpr_t *expr, const char *cmd, char **fnp)
+{
+	char buf[256];
+	char *fn;
+	FILE *fp;
+	int ret;
+
+	fn = mktmp();
+	if (!fn)
+		return -1;
+
+	snprintf(buf, sizeof(buf), "%s %s", cmd, fn);
+	ret = run(buf);
+	if (ret) {
+		unlink(fn);
+		free(fn);
+		return ret;
+	}
+
+	fp = fopen(fn, "r");
+	if (!fp) {
+		unlink(fn);
+		free(fn);
+		return -1;
+	}
+
+	if (fgets(buf, sizeof(buf), fp)) {
+		chomp(buf);
+		if (expr->value)
+			free(expr->value);
+		expr->value = strdup(buf);
+		fclose(fp);
+	} else {
+		fclose(fp);
+		unlink(fn);
+		free(fn);
+		return -1;
+	}
+
+	*fnp = fn;
+	return 0;
+}
+
+/*
  * Instead of srp_set(), which requries a value, this calls an external
  * helper command to construct the value.
  */
 int srp_helper(kcontext_t *context)
 {
-	int ret = 0;
-	faux_argv_t *args = NULL;
-	pline_t *pline = NULL;
+	const faux_argv_t *cur_path = NULL;
 	sr_session_ctx_t *sess = NULL;
 	faux_list_node_t *iter = NULL;
+	faux_argv_t *args = NULL;
+	pline_t *pline = NULL;
 	pexpr_t *expr = NULL;
 	size_t err_num = 0;
-	faux_argv_t *cur_path = NULL;
+	int ret = 0;
 
 	assert(context);
 	sess = srp_udata_sr_sess(context);
@@ -750,6 +806,8 @@ int srp_helper(kcontext_t *context)
 			break;
 		}
 
+		syslog(LOG_ERR, "%s(): xpath %s", __func__, expr->xpath);
+
 		type = node_type(sess, expr->xpath);
 		if (type == LY_TYPE_UNKNOWN) {
 			fprintf(stderr, ERRORMSG "Path does not exist or is not a leaf node: %s\n", expr->xpath);
@@ -757,7 +815,12 @@ int srp_helper(kcontext_t *context)
 			goto fail;
 		}
 
-		if (type == LY_TYPE_BINARY) {
+		if (type == LY_TYPE_BINARY && is_passphrase(expr->xpath)) {
+			if ((ret = run_helper(expr, "askpass -b", &fn))) {
+				err_num++;
+				goto fail;
+			}
+		} else if (type == LY_TYPE_BINARY) {
 			char buf[BUFSIZ];
 			sr_val_t *val = NULL;
 			FILE *fp;
@@ -815,35 +878,7 @@ int srp_helper(kcontext_t *context)
 				goto fail;
 			}
 		} else if (type == LY_TYPE_STRING && is_pwd(expr->xpath)) {
-			char buf[256];
-			FILE *fp;
-
-			fn = mktmp();
-			if (!fn) {
-				err_num++;
-				goto fail;
-			}
-
-			snprintf(buf, sizeof(buf), "askpass %s", fn);
-			if ((ret = run(buf))) {
-				err_num++;
-				goto fail;
-			}
-
-			fp = fopen(fn, "r");
-			if (!fp) {
-				err_num++;
-				goto fail;
-			}
-
-			if (fgets(buf, sizeof(buf), fp)) {
-				chomp(buf);
-				if (expr->value)
-					free(expr->value);
-				expr->value = strdup(buf);
-				fclose(fp);
-			} else {
-				fclose(fp);
+			if ((ret = run_helper(expr, "askpass", &fn))) {
 				err_num++;
 				goto fail;
 			}
