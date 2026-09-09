@@ -25,6 +25,7 @@ typedef enum {
 	PAT_LEAF_EMPTY			= 0x0040,
 	PAT_LEAFLIST			= 0x0080,
 	PAT_LEAFLIST_VALUE		= 0x0100,
+	PAT_LEAF_BINARY			= 0x0200,	// modifier, set with PAT_LEAF
 } pat_e;
 
 
@@ -87,19 +88,26 @@ typedef enum {
 
 	PT_EDIT =
 		PAT_CONTAINER |
-		PAT_LIST_KEY,
+		PAT_LIST_KEY |
+		PAT_LEAF_BINARY,
 
 	PT_NOT_EDIT =
-		PAT_LEAF |
 		PAT_LEAF_VALUE |
 		PAT_LEAFLIST |
 		PAT_LEAFLIST_VALUE,
+
+	// Accepted while typing an edit path, i.e. PT_EDIT plus incomplete lists
+	PT_EDIT_PATH =
+		PT_EDIT |
+		PAT_LIST |
+		PAT_LIST_KEY_INCOMPLETED,
 
 	PT_COMPL_EDIT =
 		PAT_CONTAINER |
 		PAT_LIST |
 		PAT_LIST_KEY |
-		PAT_LIST_KEY_INCOMPLETED,
+		PAT_LIST_KEY_INCOMPLETED |
+		PAT_LEAF_BINARY,
 
 	PT_INSERT =
 		PAT_LIST_KEY |

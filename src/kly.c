@@ -197,6 +197,17 @@ char *klyd_node_value(const struct lyd_node *node)
  * gracefully and more sane.  E.g., check node->parent or node->module.
  * But they do cover most of the cases with the least amount of code.
  */
+bool_t klysc_leaf_is_binary(const struct lysc_node *node)
+{
+	const struct lysc_node_leaf *leaf = (const struct lysc_node_leaf *)node;
+
+	if (!node || !(node->nodetype & LYS_LEAF) || !leaf->type)
+		return BOOL_FALSE;
+
+	return (LY_TYPE_BINARY == leaf->type->basetype) ? BOOL_TRUE : BOOL_FALSE;
+}
+
+
 int klysc_is_container_list(const struct lysc_node *node)
 {
 	const struct lysc_node *subtree = NULL;

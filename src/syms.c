@@ -375,7 +375,7 @@ int srp_prompt(kcontext_t *context)
 }
 
 
-static int srp_check_type(kcontext_t *context,
+static int srp_check_type(kcontext_t *context, pt_e accepted_nodes,
 	pt_e not_accepted_nodes, size_t max_expr_num, bool_t use_cur_path)
 {
 	int ret = -1;
@@ -412,6 +412,8 @@ static int srp_check_type(kcontext_t *context,
 	expr = pline_current_expr(pline);
 	if (expr->pat & not_accepted_nodes)
 		goto err;
+	if (accepted_nodes && !(expr->pat & accepted_nodes))
+		goto err;
 
 	ret = 0;
 err:
@@ -423,31 +425,31 @@ err:
 
 int srp_PLINE_SET(kcontext_t *context)
 {
-	return srp_check_type(context, PT_NOT_SET, 0, BOOL_TRUE);
+	return srp_check_type(context, 0, PT_NOT_SET, 0, BOOL_TRUE);
 }
 
 
 int srp_PLINE_DEL(kcontext_t *context)
 {
-	return srp_check_type(context, PT_NOT_DEL, 1, BOOL_TRUE);
+	return srp_check_type(context, 0, PT_NOT_DEL, 1, BOOL_TRUE);
 }
 
 
 int srp_PLINE_EDIT(kcontext_t *context)
 {
-	return srp_check_type(context, PT_NOT_EDIT, 1, BOOL_TRUE);
+	return srp_check_type(context, PT_EDIT_PATH, PT_NOT_EDIT, 1, BOOL_TRUE);
 }
 
 
 int srp_PLINE_EDIT_ABS(kcontext_t *context)
 {
-	return srp_check_type(context, PT_NOT_EDIT, 1, BOOL_FALSE);
+	return srp_check_type(context, PT_EDIT_PATH, PT_NOT_EDIT, 1, BOOL_FALSE);
 }
 
 
 int srp_PLINE_INSERT_FROM(kcontext_t *context)
 {
-	return srp_check_type(context, PT_NOT_INSERT, 1, BOOL_TRUE);
+	return srp_check_type(context, 0, PT_NOT_INSERT, 1, BOOL_TRUE);
 }
 
 
@@ -613,6 +615,24 @@ err:
 	return NULL;
 }
 
+static bool_t node_is_password(sr_session_ctx_t *sess, const char *xpath)
+{
+	const struct lysc_node *schema;
+	const struct ly_ctx *ctx;
+	sr_conn_ctx_t *conn;
+	bool_t rc = BOOL_FALSE;
+
+	conn = sr_session_get_connection(sess);
+	ctx = sr_acquire_context(conn);
+	if (ctx) {
+		schema = lys_find_path(ctx, NULL, xpath, 0);
+		rc = klysc_node_ext_is_password(schema);
+		sr_release_context(conn);
+	}
+
+	return rc;
+}
+
 LY_DATA_TYPE node_type(sr_session_ctx_t *sess, const char *xpath)
 {
 	LY_DATA_TYPE rc = LY_TYPE_UNKNOWN;
@@ -676,22 +696,6 @@ static void notify_on_delete(sr_session_ctx_t *sess, const char *xpath)
 
 		printf("NOTE: %s was reset to its default value: %s\n", nm, dflt);
 	}
-}
-
-static int is_pwd(const char *xpath)
-{
-	if (strstr(xpath, "/ietf-system:password"))
-		return 1;
-
-	return 0;
-}
-
-static int is_passphrase(const char *xpath)
-{
-	if (strstr(xpath, "/ietf-keystore:cleartext-symmetric-key"))
-		return 1;
-
-	return 0;
 }
 
 static int run(const char *cmd)
@@ -761,22 +765,149 @@ static int run_helper(pexpr_t *expr, const char *cmd, char **fnp)
 }
 
 /*
- * Instead of srp_set(), which requries a value, this calls an external
- * helper command to construct the value.
+ * Read rest of stream into a newly allocated string, without trailing newline.
+ */
+static char *slurp(FILE *fp)
+{
+	size_t len = 0, cap = BUFSIZ;
+	char *buf = malloc(cap);
+
+	if (!buf)
+		return NULL;
+
+	while (!feof(fp)) {
+		size_t n;
+
+		if (len + 1 >= cap) {
+			char *tmp = realloc(buf, cap * 2);
+
+			if (!tmp) {
+				free(buf);
+				return NULL;
+			}
+			buf = tmp;
+			cap *= 2;
+		}
+		n = fread(buf + len, 1, cap - len - 1, fp);
+		if (!n && ferror(fp)) {
+			free(buf);
+			return NULL;
+		}
+		len += n;
+	}
+	buf[len] = 0;
+	if (len && buf[len - 1] == '\n')
+		buf[len - 1] = 0;
+
+	return buf;
+}
+
+/*
+ * Open current value of a binary or string leaf in the editor, store
+ * the result (base64 encoded for binary) in expr->value.
+ */
+static int run_editor(sr_session_ctx_t *sess, pexpr_t *expr, LY_DATA_TYPE type, char **fnp)
+{
+	sr_val_t *val = NULL;
+	char buf[BUFSIZ];
+	char *fn, *str;
+	FILE *fp;
+	int rc;
+
+	fn = mktmp();
+	if (!fn)
+		return -1;
+	*fnp = fn;
+
+	rc = sr_get_item(sess, expr->xpath, 0, &val);
+	if (rc == SR_ERR_OK && val) {
+		if (type == LY_TYPE_BINARY) {
+			snprintf(buf, sizeof(buf), "base64 -d > %s", fn);
+			fp = popen(buf, "w");
+			if (fp) {
+				fputs(val->data.binary_val, fp);
+				pclose(fp);
+			}
+		} else {
+			fp = fopen(fn, "w");
+			if (fp) {
+				fputs(val->data.string_val, fp);
+				fputc('\n', fp);
+				fclose(fp);
+			}
+		}
+		sr_free_val(val);
+	} else if (rc != SR_ERR_OK && rc != SR_ERR_NOT_FOUND) {
+		srp_error(sess, ERRORMSG "Cannot fetch current value\n");
+		return -1;
+	}
+
+	snprintf(buf, sizeof(buf), "editor %s", fn);
+	if ((rc = run(buf)))
+		return rc;
+
+	if (type == LY_TYPE_BINARY) {
+		snprintf(buf, sizeof(buf), "base64 -w 0 %s", fn);
+		fp = popen(buf, "r");
+	} else
+		fp = fopen(fn, "r");
+	if (!fp)
+		return -1;
+
+	str = slurp(fp);
+	if (type == LY_TYPE_BINARY)
+		pclose(fp);
+	else
+		fclose(fp);
+	if (!str)
+		return -1;
+
+	if (expr->value)
+		free(expr->value);
+	expr->value = str;
+
+	return 0;
+}
+
+/*
+ * Instead of srp_set(), which requires a value, this calls an external
+ * helper to construct the value.  The helper is selected by the ACTION
+ * body: "editor" opens string and binary leaves in the text editor,
+ * "askpass" prompts for a password, base64 encoded for binary leaves.
+ * Without a body, binary leaves open in the editor and leaves marked
+ * with the klish:password extension use askpass.
+ *
+ * The body "edit" is for use as a second ACTION after srp_edit: it
+ * opens binary leaves in the editor and fails silently for anything
+ * else, leaving error reporting to srp_edit.
  */
 int srp_helper(kcontext_t *context)
 {
 	const faux_argv_t *cur_path = NULL;
 	sr_session_ctx_t *sess = NULL;
 	faux_list_node_t *iter = NULL;
+	const char *helper = NULL;
 	faux_argv_t *args = NULL;
 	pline_t *pline = NULL;
 	pexpr_t *expr = NULL;
+	bool_t quiet = BOOL_FALSE;
 	size_t err_num = 0;
+	char name[16];
 	int ret = 0;
 
 	assert(context);
 	sess = srp_udata_sr_sess(context);
+
+	helper = kcontext_script(context);
+	if (helper && sscanf(helper, " %15s", name) == 1)
+		helper = name;
+	else
+		helper = NULL;
+
+	if (helper && !strcmp(helper, "edit")) {
+		quiet = BOOL_TRUE;
+		helper = "editor";
+	}
 
 	cur_path = (faux_argv_t *)srp_udata_path(context);
 	args = param2argv(cur_path, kcontext_pargv(context), ARG_PATH);
@@ -784,15 +915,22 @@ int srp_helper(kcontext_t *context)
 	faux_argv_free(args);
 
 	if (pline->invalid) {
-		fprintf(stderr, ERRORMSG "Invalid set request.\n");
+		if (!quiet)
+			fprintf(stderr, ERRORMSG "Invalid set request.\n");
 		ret = -1;
 		goto cleanup;
 	}
 
 	iter = faux_list_head(pline->exprs);
 	while ((expr = (pexpr_t *)faux_list_each(&iter))) {
+		const char *use = helper;
 		LY_DATA_TYPE type;
 		char *fn = NULL;
+
+		if (quiet && !(expr->pat & PAT_LEAF_BINARY)) {
+			err_num++;
+			break;
+		}
 
 		if (expr->pat & PT_SET) {
 			fprintf(stderr, ERRORMSG "command does not take value, try 'set key value'\n");
@@ -806,8 +944,6 @@ int srp_helper(kcontext_t *context)
 			break;
 		}
 
-		syslog(LOG_ERR, "%s(): xpath %s", __func__, expr->xpath);
-
 		type = node_type(sess, expr->xpath);
 		if (type == LY_TYPE_UNKNOWN) {
 			fprintf(stderr, ERRORMSG "Path does not exist or is not a leaf node: %s\n", expr->xpath);
@@ -815,75 +951,36 @@ int srp_helper(kcontext_t *context)
 			goto fail;
 		}
 
-		if (type == LY_TYPE_BINARY && is_passphrase(expr->xpath)) {
-			if ((ret = run_helper(expr, "askpass -b", &fn))) {
-				err_num++;
-				goto fail;
-			}
-		} else if (type == LY_TYPE_BINARY) {
-			char buf[BUFSIZ];
-			sr_val_t *val = NULL;
-			FILE *fp;
-			int rc;
+		if (!use) {
+			if (type == LY_TYPE_BINARY)
+				use = "editor";
+			else if (node_is_password(sess, expr->xpath))
+				use = "askpass";
+		}
 
-			fn = mktmp();
-			if (!fn) {
-				err_num++;
-				goto fail;
-			}
+		if (!use) {
+			fprintf(stderr, ERRORMSG "No command available for this data type, try 'set' instead.\n");
+			err_num++;
+			goto fail;
+		}
 
-			// Try to get existing value from sysrepo
-			rc = sr_get_item(sess, expr->xpath, 0, &val);
-			if (rc == SR_ERR_OK && val) {
-				snprintf(buf, sizeof(buf), "base64 -d > %s", fn);
-				fp = popen(buf, "w");
-				if (!fp) {
-					sr_free_val(val);
-					err_num++;
-					goto fail;
-				}
-				fputs(val->data.binary_val, fp);
-				pclose(fp);
-				sr_free_val(val);
-			} else if (rc != SR_ERR_OK && rc != SR_ERR_NOT_FOUND) {
-				// Error other than "not found" - this is a real problem
-				srp_error(sess, ERRORMSG "Cannot fetch current value\n");
+		if (!strcmp(use, "editor")) {
+			if (type != LY_TYPE_BINARY && type != LY_TYPE_STRING) {
+				fprintf(stderr, ERRORMSG "Only string and binary leaves can be edited, try 'set' instead.\n");
 				err_num++;
 				goto fail;
 			}
-			// else if SR_ERR_NOT_FOUND, we'll just edit an empty file (new value)
-
-			snprintf(buf, sizeof(buf), "editor %s", fn);
-			if ((ret = run(buf))) {
+			if ((ret = run_editor(sess, expr, type, &fn))) {
 				err_num++;
 				goto fail;
 			}
-
-			snprintf(buf, sizeof(buf), "base64 -w 0 %s", fn);
-			fp = popen(buf, "r");
-			if (!fp) {
-				err_num++;
-				goto fail;
-			}
-
-			if (fgets(buf, sizeof(buf), fp)) {
-				chomp(buf);
-				if (expr->value)
-					free(expr->value);
-				expr->value = strdup(buf);
-				pclose(fp);
-			} else {
-				pclose(fp);
-				err_num++;
-				goto fail;
-			}
-		} else if (type == LY_TYPE_STRING && is_pwd(expr->xpath)) {
-			if ((ret = run_helper(expr, "askpass", &fn))) {
+		} else if (!strcmp(use, "askpass")) {
+			if ((ret = run_helper(expr, type == LY_TYPE_BINARY ? "askpass -b" : "askpass", &fn))) {
 				err_num++;
 				goto fail;
 			}
 		} else {
-			fprintf(stderr, ERRORMSG "No command available for this data type, try 'set' instead.\n");
+			fprintf(stderr, ERRORMSG "Unknown helper '%s'\n", use);
 			err_num++;
 			goto fail;
 		}
@@ -1090,6 +1187,16 @@ int srp_edit(kcontext_t *context)
 
 	if (!(expr->pat & PT_EDIT)) {
 		fprintf(stderr, ERRORMSG "Illegal expression for 'edit' operation\n");
+		goto err;
+	}
+
+	/*
+	 * Binary leaf: nothing to descend into.  This sym runs in klishd
+	 * without a tty, so return non-zero and let a following ACTION,
+	 * srp_helper with body "edit", open the editor.
+	 */
+	if (expr->pat & PAT_LEAF_BINARY) {
+		ret = 1;
 		goto err;
 	}
 
