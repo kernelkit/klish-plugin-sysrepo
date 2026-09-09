@@ -1258,6 +1258,12 @@ int srp_edit(kcontext_t *context)
 		goto err;
 	}
 
+	// No path, e.g. plain 'configure' with an optional path parameter
+	if (faux_list_len(pline->exprs) == 0) {
+		ret = 0;
+		goto err;
+	}
+
 	if (faux_list_len(pline->exprs) > 1) {
 		fprintf(stderr, ERRORMSG "Can't process more than one object\n");
 		goto err;
@@ -1273,10 +1279,16 @@ int srp_edit(kcontext_t *context)
 	/*
 	 * Leaf: nothing to descend into.  This sym runs in klishd without a
 	 * tty, so return non-zero and let a following ACTION, srp_helper
-	 * with body "edit", prompt for or edit the value.
+	 * with body "edit", prompt for or edit the value.  With the ACTION
+	 * body "configure" there is no such follow-up, so say so.
 	 */
 	if (expr->pat & PAT_LEAF_EDIT) {
-		ret = 1;
+		const char *body = kcontext_script(context);
+
+		if (body && strstr(body, "configure"))
+			fprintf(stderr, ERRORMSG "Not a configuration node, use configure and then edit\n");
+		else
+			ret = 1;
 		goto err;
 	}
 
