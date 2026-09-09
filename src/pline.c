@@ -301,8 +301,8 @@ static void pline_add_compl_subtree(pline_t *pline, const struct lys_module *mod
 			break;
 		case LYS_LEAF:
 			pat = PAT_LEAF;
-			if (klysc_leaf_is_binary(iter))
-				pat |= PAT_LEAF_BINARY;
+			if (klysc_leaf_is_text(iter))
+				pat |= PAT_LEAF_EDIT;
 			break;
 		case LYS_LEAFLIST:
 			pat = PAT_LEAFLIST;
@@ -512,7 +512,7 @@ static const char *pat2str(pat_e pat)
 {
 	const char *str = NULL;
 
-	switch (pat & ~PAT_LEAF_BINARY) {
+	switch (pat & ~PAT_LEAF_EDIT) {
 	case PAT_NONE:
 		str = "NONE";
 		break;
@@ -1005,8 +1005,8 @@ static bool_t pline_parse_module(const struct lys_module *module, faux_argv_t *a
 			} else {
 
 				pexpr->pat = PAT_LEAF;
-				if (LY_TYPE_BINARY == leaf->type->basetype)
-					pexpr->pat |= PAT_LEAF_BINARY;
+				if (klysc_leaf_is_text(node))
+					pexpr->pat |= PAT_LEAF_EDIT;
 
 				// Completion
 				if (!str) {

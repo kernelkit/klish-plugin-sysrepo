@@ -25,7 +25,7 @@ typedef enum {
 	PAT_LEAF_EMPTY			= 0x0040,
 	PAT_LEAFLIST			= 0x0080,
 	PAT_LEAFLIST_VALUE		= 0x0100,
-	PAT_LEAF_BINARY			= 0x0200,	// modifier, set with PAT_LEAF
+	PAT_LEAF_EDIT			= 0x0200,	// modifier, set with PAT_LEAF for string/binary
 } pat_e;
 
 
@@ -89,7 +89,7 @@ typedef enum {
 	PT_EDIT =
 		PAT_CONTAINER |
 		PAT_LIST_KEY |
-		PAT_LEAF_BINARY,
+		PAT_LEAF_EDIT,
 
 	PT_NOT_EDIT =
 		PAT_LEAF_VALUE |
@@ -107,7 +107,7 @@ typedef enum {
 		PAT_LIST |
 		PAT_LIST_KEY |
 		PAT_LIST_KEY_INCOMPLETED |
-		PAT_LEAF_BINARY,
+		PAT_LEAF_EDIT,
 
 	PT_INSERT =
 		PAT_LIST_KEY |
@@ -182,6 +182,7 @@ typedef struct {
 	bool_t hide_passwords;
 	bool_t enable_nacm;
 	bool_t oneliners;
+	faux_list_t *secrets;	// data paths of secret leaves, from Secret.N options
 } pline_opts_t;
 
 

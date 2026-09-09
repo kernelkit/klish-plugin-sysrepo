@@ -3,6 +3,7 @@
  */
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <stdint.h>
 #include <assert.h>
 #include <syslog.h>
@@ -151,6 +152,8 @@ int kplugin_sysrepo_init(kcontext_t *context)
 	udata->opts.hide_passwords = BOOL_TRUE;
 	udata->opts.enable_nacm = BOOL_FALSE;
 	udata->opts.oneliners = BOOL_TRUE;
+	udata->opts.secrets = faux_list_new(FAUX_LIST_UNSORTED, FAUX_LIST_NONUNIQUE,
+		NULL, NULL, (faux_list_free_fn)faux_str_free);
 	parse_plugin_conf(kplugin_conf(plugin), &udata->opts);
 
 	kplugin_set_udata(plugin, udata);
@@ -173,6 +176,7 @@ int kplugin_sysrepo_fini(kcontext_t *context)
 	assert(udata);
 	if (udata->path)
 		faux_argv_free(udata->path);
+	faux_list_free(udata->opts.secrets);
 	faux_free(udata);
 
 	return 0;
@@ -322,6 +326,33 @@ static int parse_plugin_conf(const char *conf, pline_opts_t *opts)
 			opts->oneliners = BOOL_TRUE;
 		else if (faux_str_cmp(val, "n") == 0)
 			opts->oneliners = BOOL_FALSE;
+	}
+
+	// Data paths of leaves to prompt for with askpass, one per line:
+	// Secret.1 = /ietf-system:system/authentication/user/password
+	// libfaux does not export the pair accessors, so go via the writer,
+	// which emits one name=value line per pair.
+	if (opts->secrets) {
+		faux_ini_t *sub = faux_ini_extract_subini(ini, "Secret.");
+		char *str = sub ? faux_ini_write_str(sub) : NULL;
+		char *line, *saveptr = NULL;
+
+		for (line = str ? strtok_r(str, "\n", &saveptr) : NULL; line;
+		     line = strtok_r(NULL, "\n", &saveptr)) {
+			char *value = strchr(line, '=');
+
+			if (!value || !*++value)
+				continue;
+			if (*value == '"') {
+				char *end = strrchr(++value, '"');
+
+				if (end)
+					*end = '\0';
+			}
+			faux_list_add(opts->secrets, faux_str_dup(value));
+		}
+		faux_str_free(str);
+		faux_ini_free(sub);
 	}
 
 	faux_ini_free(ini);

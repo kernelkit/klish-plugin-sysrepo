@@ -615,20 +615,42 @@ err:
 	return NULL;
 }
 
-static bool_t node_is_password(sr_session_ctx_t *sess, const char *xpath)
+/*
+ * A leaf is a secret if listed in the Secret.N plugin options, by data
+ * path without list keys, choice and case, or if it carries the
+ * klish:password extension.
+ */
+static bool_t node_is_secret(sr_session_ctx_t *sess, const char *xpath, const pline_opts_t *opts)
 {
 	const struct lysc_node *schema;
 	const struct ly_ctx *ctx;
 	sr_conn_ctx_t *conn;
 	bool_t rc = BOOL_FALSE;
+	char path[1024];
 
 	conn = sr_session_get_connection(sess);
 	ctx = sr_acquire_context(conn);
-	if (ctx) {
-		schema = lys_find_path(ctx, NULL, xpath, 0);
-		rc = klysc_node_ext_is_password(schema);
-		sr_release_context(conn);
+	if (!ctx)
+		return BOOL_FALSE;
+
+	schema = lys_find_path(ctx, NULL, xpath, 0);
+	if (schema) {
+		if (klysc_node_ext_is_password(schema))
+			rc = BOOL_TRUE;
+		else if (opts && opts->secrets &&
+			 lysc_path(schema, LYSC_PATH_DATA, path, sizeof(path))) {
+			faux_list_node_t *iter = faux_list_head(opts->secrets);
+			const char *secret;
+
+			while ((secret = faux_list_each(&iter))) {
+				if (!strcmp(secret, path)) {
+					rc = BOOL_TRUE;
+					break;
+				}
+			}
+		}
 	}
+	sr_release_context(conn);
 
 	return rc;
 }
@@ -870,6 +892,55 @@ static int run_editor(sr_session_ctx_t *sess, pexpr_t *expr, LY_DATA_TYPE type, 
 }
 
 /*
+ * Prompt for a single line, prefilled with the current value of a string
+ * leaf, using the askline helper.  The value travels via the temp file.
+ */
+static int run_askline(sr_session_ctx_t *sess, pexpr_t *expr, char **fnp)
+{
+	sr_val_t *val = NULL;
+	char buf[BUFSIZ];
+	char *fn, *str;
+	FILE *fp;
+	int rc;
+
+	fn = mktmp();
+	if (!fn)
+		return -1;
+	*fnp = fn;
+
+	rc = sr_get_item(sess, expr->xpath, 0, &val);
+	if (rc == SR_ERR_OK && val) {
+		fp = fopen(fn, "w");
+		if (fp) {
+			fputs(val->data.string_val, fp);
+			fclose(fp);
+		}
+		sr_free_val(val);
+	} else if (rc != SR_ERR_OK && rc != SR_ERR_NOT_FOUND) {
+		srp_error(sess, ERRORMSG "Cannot fetch current value\n");
+		return -1;
+	}
+
+	snprintf(buf, sizeof(buf), "askline %s %s", sr_xpath_node_name(expr->xpath), fn);
+	if ((rc = run(buf)))
+		return rc;
+
+	fp = fopen(fn, "r");
+	if (!fp)
+		return -1;
+	str = slurp(fp);
+	fclose(fp);
+	if (!str)
+		return -1;
+
+	if (expr->value)
+		free(expr->value);
+	expr->value = str;
+
+	return 0;
+}
+
+/*
  * Instead of srp_set(), which requires a value, this calls an external
  * helper to construct the value.  The helper is selected by the ACTION
  * body: "editor" opens string and binary leaves in the text editor,
@@ -877,9 +948,11 @@ static int run_editor(sr_session_ctx_t *sess, pexpr_t *expr, LY_DATA_TYPE type, 
  * Without a body, binary leaves open in the editor and leaves marked
  * with the klish:password extension use askpass.
  *
- * The body "edit" is for use as a second ACTION after srp_edit: it
- * opens binary leaves in the editor and fails silently for anything
- * else, leaving error reporting to srp_edit.
+ * The body "edit" is for use as a second ACTION after srp_edit, which
+ * has already handled containers and lists: secrets, see Secrets option,
+ * are prompted for with askpass, binary leaves open in the editor, and
+ * other strings are prompted for on a line prefilled with the current
+ * value.  Anything else fails silently, leaving errors to srp_edit.
  */
 int srp_helper(kcontext_t *context)
 {
@@ -906,7 +979,7 @@ int srp_helper(kcontext_t *context)
 
 	if (helper && !strcmp(helper, "edit")) {
 		quiet = BOOL_TRUE;
-		helper = "editor";
+		helper = NULL;
 	}
 
 	cur_path = (faux_argv_t *)srp_udata_path(context);
@@ -927,7 +1000,7 @@ int srp_helper(kcontext_t *context)
 		LY_DATA_TYPE type;
 		char *fn = NULL;
 
-		if (quiet && !(expr->pat & PAT_LEAF_BINARY)) {
+		if (quiet && !(expr->pat & PAT_LEAF_EDIT)) {
 			err_num++;
 			break;
 		}
@@ -952,10 +1025,12 @@ int srp_helper(kcontext_t *context)
 		}
 
 		if (!use) {
-			if (type == LY_TYPE_BINARY)
-				use = "editor";
-			else if (node_is_password(sess, expr->xpath))
+			if (node_is_secret(sess, expr->xpath, srp_udata_opts(context)))
 				use = "askpass";
+			else if (type == LY_TYPE_BINARY)
+				use = "editor";
+			else if (quiet && type == LY_TYPE_STRING)
+				use = "askline";
 		}
 
 		if (!use) {
@@ -964,7 +1039,12 @@ int srp_helper(kcontext_t *context)
 			goto fail;
 		}
 
-		if (!strcmp(use, "editor")) {
+		if (!strcmp(use, "askline")) {
+			if ((ret = run_askline(sess, expr, &fn))) {
+				err_num++;
+				goto fail;
+			}
+		} else if (!strcmp(use, "editor")) {
 			if (type != LY_TYPE_BINARY && type != LY_TYPE_STRING) {
 				fprintf(stderr, ERRORMSG "Only string and binary leaves can be edited, try 'set' instead.\n");
 				err_num++;
@@ -1191,11 +1271,11 @@ int srp_edit(kcontext_t *context)
 	}
 
 	/*
-	 * Binary leaf: nothing to descend into.  This sym runs in klishd
-	 * without a tty, so return non-zero and let a following ACTION,
-	 * srp_helper with body "edit", open the editor.
+	 * Leaf: nothing to descend into.  This sym runs in klishd without a
+	 * tty, so return non-zero and let a following ACTION, srp_helper
+	 * with body "edit", prompt for or edit the value.
 	 */
-	if (expr->pat & PAT_LEAF_BINARY) {
+	if (expr->pat & PAT_LEAF_EDIT) {
 		ret = 1;
 		goto err;
 	}
