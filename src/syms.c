@@ -1111,6 +1111,22 @@ cleanup:
 }
 
 
+static bool_t set_implied(sr_session_ctx_t *sess, pline_t *pline)
+{
+	faux_list_node_t *iter = faux_list_head(pline->implied);
+	pexpr_t *expr = NULL;
+
+	while ((expr = (pexpr_t *)faux_list_each(&iter))) {
+		if (sr_set_item_str(sess, expr->xpath, expr->value, NULL, 0) != SR_ERR_OK) {
+			srp_error(sess, ERRORMSG "Failed setting data.\n");
+			return BOOL_FALSE;
+		}
+	}
+
+	return BOOL_TRUE;
+}
+
+
 int srp_set(kcontext_t *context)
 {
 	int ret = 0;
@@ -1132,6 +1148,13 @@ int srp_set(kcontext_t *context)
 
 	if (pline->invalid) {
 		fprintf(stderr, ERRORMSG "Invalid set request.\n");
+		ret = -1;
+		goto cleanup;
+	}
+
+	// Before exprs, so an explicit value on the same line wins
+	if (!set_implied(sess, pline)) {
+		sr_discard_changes(sess);
 		ret = -1;
 		goto cleanup;
 	}
@@ -1294,6 +1317,11 @@ int srp_edit(kcontext_t *context)
 
 	if (sr_set_item_str(sess, expr->xpath, NULL, NULL, 0) != SR_ERR_OK) {
 		srp_error(sess, ERRORMSG "Can't set editing data\n");
+		goto err;
+	}
+
+	if (!set_implied(sess, pline)) {
+		sr_discard_changes(sess);
 		goto err;
 	}
 

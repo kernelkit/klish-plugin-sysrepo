@@ -8,6 +8,7 @@
 #include <assert.h>
 #include <syslog.h>
 #include <limits.h>
+#include <arpa/inet.h>
 
 #include <faux/faux.h>
 #include <faux/str.h>
@@ -171,6 +172,8 @@ pline_t *pline_new(sr_session_ctx_t *sess)
 	pline->invalid = BOOL_FALSE;
 	pline->exprs = faux_list_new(FAUX_LIST_UNSORTED, FAUX_LIST_NONUNIQUE,
 		NULL, NULL, (faux_list_free_fn)pexpr_free);
+	pline->implied = faux_list_new(FAUX_LIST_UNSORTED, FAUX_LIST_NONUNIQUE,
+		NULL, NULL, (faux_list_free_fn)pexpr_free);
 	pline->compls = faux_list_new(FAUX_LIST_UNSORTED, FAUX_LIST_NONUNIQUE,
 		NULL, NULL, (faux_list_free_fn)pcompl_free);
 
@@ -199,6 +202,7 @@ void pline_free(pline_t *pline)
 		return;
 
 	faux_list_free(pline->exprs);
+	faux_list_free(pline->implied);
 	faux_list_free(pline->compls);
 
 	if (pline->candidate_data)
@@ -652,6 +656,33 @@ static bool_t pexpr_xpath_add_leaflist_key(pexpr_t *pexpr,
 }
 
 
+// Split an ADDR/LEN list key in place when the list has a prefix-length
+// leaf, e.g. ietf-ip addresses.  Returns a copy of LEN, or NULL.
+static char *cidr_split(const struct lysc_node *list, char *str,
+	const struct lysc_node **plen)
+{
+	unsigned char buf[sizeof(struct in6_addr)];
+	const struct lysc_node *node = NULL;
+	char *slash = strchr(str, '/');
+
+	if (!slash || !slash[1] || strspn(slash + 1, "0123456789") != strlen(slash + 1))
+		return NULL;
+
+	node = klysc_find_child(lysc_node_child(list), "prefix-length");
+	if (!node || !(node->nodetype & LYS_LEAF) || (node->flags & LYS_KEY))
+		return NULL;
+
+	*slash = 0;
+	if (inet_pton(AF_INET, str, buf) != 1 && inet_pton(AF_INET6, str, buf) != 1) {
+		*slash = '/';
+		return NULL;
+	}
+	*plen = node;
+
+	return faux_str_dup(slash + 1);
+}
+
+
 static void pline_add_compl_leafref(pline_t *pline, const struct lysc_node *node,
 	const struct lysc_type *type, const char *xpath, pat_e pat)
 {
@@ -852,6 +883,8 @@ static bool_t pline_parse_module(const struct lys_module *module, faux_argv_t *a
 					bool_t first_key = BOOL_TRUE;
 					bool_t first_key_is_optional = BOOL_FALSE;
 					faux_list_node_t *key_iter = NULL;
+					const struct lysc_node *plen_node = NULL;
+					char *plen = NULL;
 
 					// List keys
 					keys = faux_list_new(FAUX_LIST_UNSORTED,
@@ -916,6 +949,10 @@ static bool_t pline_parse_module(const struct lys_module *module, faux_argv_t *a
 						struct lysc_node_leaf *leaf =
 							(struct lysc_node_leaf *)cur_key->node;
 						char *prefix = NULL;
+
+						// Our own copy of the arg, so edit saves the path without /LEN
+						if (!plen)
+							plen = cidr_split(node, (char *)str, &plen_node);
 						// Idenity must have prefix
 						if (LY_TYPE_IDENT == leaf->type->basetype) {
 							prefix = klysc_identityref_prefix((struct lysc_type_identityref *)
@@ -967,6 +1004,17 @@ static bool_t pline_parse_module(const struct lys_module *module, faux_argv_t *a
 						}
 					}
 					faux_list_free(keys);
+
+					if (plen && !break_upper_loop) {
+						pexpr_t *implied = pexpr_new();
+
+						implied->xpath = faux_str_sprintf("%s/%s:%s", pexpr->xpath,
+							plen_node->module->name, plen_node->name);
+						implied->value = plen;
+						faux_list_add(pline->implied, implied);
+					} else {
+						faux_str_free(plen);
+					}
 				}
 				if (break_upper_loop)
 					break;

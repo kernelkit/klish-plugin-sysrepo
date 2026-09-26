@@ -162,6 +162,7 @@ typedef struct pline_s {
 	sr_session_ctx_t *sess;
 	bool_t invalid;
 	faux_list_t *exprs;
+	faux_list_t *implied; // Set along with exprs, e.g. prefix-length from ADDR/LEN
 	faux_list_t *compls;
 	sr_data_t *candidate_data; // Cached candidate datastore for when evaluation
 } pline_t;
