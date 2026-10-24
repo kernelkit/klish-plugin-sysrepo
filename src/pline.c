@@ -18,7 +18,6 @@
 #include <sysrepo.h>
 #include <sysrepo/xpath.h>
 #include <sysrepo/values.h>
-#include <libyang/tree_edit.h>
 #include <libyang/tree_schema.h>
 #include <libyang/tree_data.h>
 
@@ -327,7 +326,7 @@ static void pline_add_compl_subtree(pline_t *pline, const struct lys_module *mod
 static bool_t check_node_when(pline_t *pline, const struct lysc_node *node)
 {
 	struct lysc_when **when_array = NULL;
-	LY_ARRAY_COUNT_TYPE i;
+	LYA_COUNT_T i;
 	pexpr_t *pexpr = NULL;
 	struct lyd_node *current_data = NULL;
 	struct lyd_node *temp_tree_root = NULL;
@@ -399,7 +398,7 @@ static bool_t check_node_when(pline_t *pline, const struct lysc_node *node)
 					/* Copy existing children from candidate to temp tree for accurate evaluation */
 					struct lyd_node *src_child;
 					LY_LIST_FOR(lyd_child(current_data), src_child) {
-						lyd_dup_single(src_child, (struct lyd_node_inner *)temp_parent, LYD_DUP_WITH_FLAGS, NULL);
+						lyd_dup_single(src_child, temp_parent, LYD_DUP_WITH_FLAGS, NULL);
 					}
 					/* Add defaults for any missing children */
 					lyd_new_implicit_all(&temp_tree_root, ctx, LYD_IMPLICIT_NO_STATE, NULL);
@@ -414,7 +413,7 @@ static bool_t check_node_when(pline_t *pline, const struct lysc_node *node)
 	}
 
 	/* Evaluate each when statement */
-	LY_ARRAY_FOR(when_array, i) {
+	LYA_FOR(when_array, i) {
 		struct lysc_when *when = when_array[i];
 		const char *xpath = NULL;
 		ly_bool result = 0;
@@ -698,8 +697,8 @@ static void pline_add_compl_leafref(pline_t *pline, const struct lysc_node *node
 	case LY_TYPE_UNION: {
 		struct lysc_type_union *t =
 			(struct lysc_type_union *)type;
-		LY_ARRAY_COUNT_TYPE u = 0;
-		LY_ARRAY_FOR(t->types, u) {
+		LYA_COUNT_T u = 0;
+		LYA_FOR(t->types, u) {
 			pline_add_compl_leafref(pline, node, t->types[u], xpath, pat);
 		}
 		break;
@@ -959,9 +958,9 @@ static bool_t pline_parse_module(const struct lys_module *module, faux_argv_t *a
 											  leaf->type, str);
 						} else if (LY_TYPE_UNION == leaf->type->basetype) {
 							struct lysc_type_union *un = (struct lysc_type_union *)leaf->type;
-							LY_ARRAY_COUNT_TYPE u;
+							LYA_COUNT_T u;
 
-							LY_ARRAY_FOR(un->types, u) {
+							LYA_FOR(un->types, u) {
 								if (LY_TYPE_IDENT == un->types[u]->basetype) {
 									prefix = (char *)klysc_identityref_prefix(
 										(struct lysc_type_identityref *)un->types[u], str);
@@ -1212,7 +1211,7 @@ pline_t *pline_parse(sr_session_ctx_t *sess, faux_argv_t *argv, pline_opts_t *op
 
 static void identityref_compl(struct lysc_ident *ident)
 {
-	LY_ARRAY_COUNT_TYPE u = 0;
+	LYA_COUNT_T u = 0;
 
 	if (!ident)
 		return;
@@ -1230,7 +1229,7 @@ static void identityref_compl(struct lysc_ident *ident)
 		return;
 	}
 
-	LY_ARRAY_FOR(ident->derived, u) {
+	LYA_FOR(ident->derived, u) {
 		identityref_compl(ident->derived[u]);
 	}
 }
@@ -1238,7 +1237,7 @@ static void identityref_compl(struct lysc_ident *ident)
 
 static void identityref_help(struct lysc_ident *ident)
 {
-	LY_ARRAY_COUNT_TYPE u = 0;
+	LYA_COUNT_T u = 0;
 
 	if (!ident)
 		return;
@@ -1254,7 +1253,7 @@ static void identityref_help(struct lysc_ident *ident)
 		return;
 	}
 
-	LY_ARRAY_FOR(ident->derived, u) {
+	LYA_FOR(ident->derived, u) {
 		identityref_help(ident->derived[u]);
 	}
 }
@@ -1275,9 +1274,9 @@ static void pline_print_type_completions(const struct lysc_type *type)
 	case LY_TYPE_ENUM: {
 		const struct lysc_type_enum *t =
 			(const struct lysc_type_enum *)type;
-		LY_ARRAY_COUNT_TYPE u = 0;
+		LYA_COUNT_T u = 0;
 
-		LY_ARRAY_FOR(t->enums, u) {
+		LYA_FOR(t->enums, u) {
 			printf("%s\n",t->enums[u].name);
 		}
 		break;
@@ -1286,9 +1285,9 @@ static void pline_print_type_completions(const struct lysc_type *type)
 	case LY_TYPE_IDENT: {
 		struct lysc_type_identityref *t =
 			(struct lysc_type_identityref *)type;
-		LY_ARRAY_COUNT_TYPE u = 0;
+		LYA_COUNT_T u = 0;
 
-		LY_ARRAY_FOR(t->bases, u) {
+		LYA_FOR(t->bases, u) {
 			identityref_compl(t->bases[u]);
 		}
 		break;
@@ -1297,9 +1296,9 @@ static void pline_print_type_completions(const struct lysc_type *type)
 	case LY_TYPE_UNION: {
 		struct lysc_type_union *t =
 			(struct lysc_type_union *)type;
-		LY_ARRAY_COUNT_TYPE u = 0;
+		LYA_COUNT_T u = 0;
 
-		LY_ARRAY_FOR(t->types, u) {
+		LYA_FOR(t->types, u) {
 			pline_print_type_completions(t->types[u]);
 		}
 		break;
@@ -1321,7 +1320,7 @@ static void pline_print_type_completions(const struct lysc_type *type)
 static void uint_range(const struct lysc_type *type, uint64_t def_min, uint64_t def_max)
 {
 	struct lysc_range *range = NULL;
-	LY_ARRAY_COUNT_TYPE u = 0;
+	LYA_COUNT_T u = 0;
 	char *r = NULL;
 
 	assert(type);
@@ -1335,7 +1334,7 @@ static void uint_range(const struct lysc_type *type, uint64_t def_min, uint64_t 
 
 	// Range
 	faux_str_cat(&r, "[");
-	LY_ARRAY_FOR(range->parts, u) {
+	LYA_FOR(range->parts, u) {
 		char *t = NULL;
 		if (u != 0)
 			faux_str_cat(&r, "|");
@@ -1353,7 +1352,7 @@ static void uint_range(const struct lysc_type *type, uint64_t def_min, uint64_t 
 static void int_range(const struct lysc_type *type, int64_t def_min, int64_t def_max)
 {
 	struct lysc_range *range = NULL;
-	LY_ARRAY_COUNT_TYPE u = 0;
+	LYA_COUNT_T u = 0;
 	char *r = NULL;
 
 	assert(type);
@@ -1367,7 +1366,7 @@ static void int_range(const struct lysc_type *type, int64_t def_min, int64_t def
 
 	// Range
 	faux_str_cat(&r, "[");
-	LY_ARRAY_FOR(range->parts, u) {
+	LYA_FOR(range->parts, u) {
 		char *t = NULL;
 		if (u != 0)
 			faux_str_cat(&r, "|");
@@ -1386,7 +1385,7 @@ static void dec_range(const struct lysc_type *type, int64_t def_min, int64_t def
 {
 	struct lysc_range *range = NULL;
 	uint8_t fraction_digits = 0;
-	LY_ARRAY_COUNT_TYPE u = 0;
+	LYA_COUNT_T u = 0;
 	char *r = NULL;
 	int64_t div = 1;
 	uint8_t i = 0;
@@ -1407,7 +1406,7 @@ static void dec_range(const struct lysc_type *type, int64_t def_min, int64_t def
 
 	// Range
 	faux_str_cat(&r, "[");
-	LY_ARRAY_FOR(range->parts, u) {
+	LYA_FOR(range->parts, u) {
 		char *t = NULL;
 		if (u != 0)
 			faux_str_cat(&r, "|");
@@ -1426,7 +1425,7 @@ static void dec_range(const struct lysc_type *type, int64_t def_min, int64_t def
 static void str_range(const struct lysc_type *type)
 {
 	struct lysc_range *range = NULL;
-	LY_ARRAY_COUNT_TYPE u = 0;
+	LYA_COUNT_T u = 0;
 	char *r = NULL;
 
 	assert(type);
@@ -1440,7 +1439,7 @@ static void str_range(const struct lysc_type *type)
 
 	// Range
 	faux_str_cat(&r, "<string[");
-	LY_ARRAY_FOR(range->parts, u) {
+	LYA_FOR(range->parts, u) {
 		char *t = NULL;
 		if (u != 0)
 			faux_str_cat(&r, "|");
@@ -1547,14 +1546,14 @@ static void pline_print_type_help(const struct lysc_node *node,
 		case LY_TYPE_UNION: {
 			const struct lysc_type_union *t =
 				(const struct lysc_type_union *)type;
-			LY_ARRAY_COUNT_TYPE u = 0;
+			LYA_COUNT_T u = 0;
 
 			if (full) {
 				printf("<union>\n");
 				break;
 			}
 
-			LY_ARRAY_FOR(t->types, u)
+			LYA_FOR(t->types, u)
 				pline_print_type_help(node, t->types[u], full);
 			return; // Because it prints whole info itself
 		}
@@ -1562,14 +1561,14 @@ static void pline_print_type_help(const struct lysc_node *node,
 		case LY_TYPE_ENUM: {
 			const struct lysc_type_enum *t =
 				(const struct lysc_type_enum *)type;
-			LY_ARRAY_COUNT_TYPE u = 0;
+			LYA_COUNT_T u = 0;
 
 			if (full) {
 				printf("<enum>\n");
 				break;
 			}
 
-			LY_ARRAY_FOR(t->enums, u)
+			LYA_FOR(t->enums, u)
 				if (t->enums[u].dsc) {
 					char *dsc = faux_str_getline(
 						t->enums[u].dsc, NULL);
@@ -1587,14 +1586,14 @@ static void pline_print_type_help(const struct lysc_node *node,
 		case LY_TYPE_IDENT: {
 			struct lysc_type_identityref *t =
 				(struct lysc_type_identityref *)type;
-			LY_ARRAY_COUNT_TYPE u = 0;
+			LYA_COUNT_T u = 0;
 
 			if (full) {
 				printf("<identity>\n");
 				break;
 			}
 
-			LY_ARRAY_FOR(t->bases, u)
+			LYA_FOR(t->bases, u)
 				identityref_help(t->bases[u]);
 			return; // Because it prints whole info itself
 		}

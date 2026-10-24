@@ -13,7 +13,6 @@
 #include <sysrepo.h>
 #include <sysrepo/xpath.h>
 #include <sysrepo/values.h>
-#include <libyang/tree_edit.h>
 
 #include "private.h"
 #include "pline.h"

@@ -13,7 +13,6 @@
 #include <sysrepo.h>
 #include <sysrepo/xpath.h>
 #include <sysrepo/values.h>
-#include <libyang/tree_edit.h>
 
 #include "private.h"
 #include "pline.h"
@@ -41,12 +40,12 @@ int klysc_key_kcompare(const void *key, const void *list_item)
 static bool_t klysc_ext(const struct lysc_ext_instance *exts,
 	const char *module, const char *name, const char **argument)
 {
-	LY_ARRAY_COUNT_TYPE u = 0;
+	LYA_COUNT_T u = 0;
 
 	if (!exts)
 		return BOOL_FALSE;
 
-	LY_ARRAY_FOR(exts, u) {
+	LYA_FOR(exts, u) {
 		const struct lysc_ext_instance *ext = &exts[u];
 		//syslog(LOG_ERR, "mod: %s, ext: %s", ext->def->module->name, ext->def->name);
 		if (faux_str_cmp(ext->def->module->name, module) != 0)
@@ -297,7 +296,7 @@ const struct lysc_node *klysc_find_child(const struct lysc_node *node,
 
 static struct lysc_ident *klysc_find_ident(struct lysc_ident *ident, const char *name)
 {
-	LY_ARRAY_COUNT_TYPE u = 0;
+	LYA_COUNT_T u = 0;
 
 	if (!ident)
 		return NULL;
@@ -308,7 +307,7 @@ static struct lysc_ident *klysc_find_ident(struct lysc_ident *ident, const char 
 		return NULL;
 	}
 
-	LY_ARRAY_FOR(ident->derived, u) {
+	LYA_FOR(ident->derived, u) {
 		struct lysc_ident *identity = klysc_find_ident(ident->derived[u], name);
 		if (identity)
 			return identity;
@@ -321,11 +320,11 @@ static struct lysc_ident *klysc_find_ident(struct lysc_ident *ident, const char 
 const char *klysc_identityref_prefix(struct lysc_type_identityref *type,
 	const char *name)
 {
-	LY_ARRAY_COUNT_TYPE u = 0;
+	LYA_COUNT_T u = 0;
 
 	assert(type);
 
-	LY_ARRAY_FOR(type->bases, u) {
+	LYA_FOR(type->bases, u) {
 		struct lysc_ident *identity = klysc_find_ident(type->bases[u], name);
 		if (identity)
 			return identity->module->name;
@@ -339,7 +338,7 @@ const char *klysc_identityref_prefix(struct lysc_type_identityref *type,
 // prefixes.
 static const char *module_by_prefix(const struct lysp_module *parsed, const char *prefix)
 {
-	LY_ARRAY_COUNT_TYPE u = 0;
+	LYA_COUNT_T u = 0;
 
 	if (!parsed)
 		return NULL;
@@ -351,7 +350,7 @@ static const char *module_by_prefix(const struct lysp_module *parsed, const char
 		return parsed->mod->name;
 
 	// Try imported modules
-	LY_ARRAY_FOR(parsed->imports, u) {
+	LYA_FOR(parsed->imports, u) {
 		const struct lysp_import *import = &parsed->imports[u];
 		if (faux_str_cmp(prefix, import->prefix) == 0)
 			return import->name;
