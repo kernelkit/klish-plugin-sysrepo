@@ -336,31 +336,23 @@ const char *klysc_identityref_prefix(struct lysc_type_identityref *type,
 
 // Get module name by internal prefix. Sysrepo requests use module names but not
 // prefixes.
-static const char *module_by_prefix(const struct lysp_module *parsed, const char *prefix)
+static const char *module_by_prefix(const struct lysc_prefix *prefixes, const char *prefix)
 {
 	LYA_COUNT_T u = 0;
 
-	if (!parsed)
-		return NULL;
 	if (!prefix)
 		return NULL;
 
-	// Try prefix of module itself
-	if (faux_str_cmp(prefix, parsed->mod->prefix) == 0)
-		return parsed->mod->name;
-
-	// Try imported modules
-	LYA_FOR(parsed->imports, u) {
-		const struct lysp_import *import = &parsed->imports[u];
-		if (faux_str_cmp(prefix, import->prefix) == 0)
-			return import->name;
+	LYA_FOR(prefixes, u) {
+		if (faux_str_cmp(prefix, prefixes[u].prefix) == 0)
+			return prefixes[u].mod->name;
 	}
 
 	return NULL;
 }
 
 
-static char *remap_xpath_prefixes(const char *orig_xpath, const struct lysp_module *parsed)
+static char *remap_xpath_prefixes(const char *orig_xpath, const struct lysc_prefix *prefixes)
 {
 	char *remaped = NULL;
 	const char *pos = orig_xpath;
@@ -382,7 +374,7 @@ static char *remap_xpath_prefixes(const char *orig_xpath, const struct lysp_modu
 					faux_str_cat(&remaped, cached_module);
 					faux_str_free(prefix);
 				} else {
-					const char *module = module_by_prefix(parsed, prefix);
+					const char *module = module_by_prefix(prefixes, prefix);
 					if (module) {
 						faux_str_cat(&remaped, module);
 						faux_str_free(cached_prefix);
@@ -481,7 +473,7 @@ char *klysc_leafref_xpath(const struct lysc_node *node,
 	if (!orig_xpath)
 		return NULL;
 
-	remaped_xpath = remap_xpath_prefixes(orig_xpath, node->module->parsed);
+	remaped_xpath = remap_xpath_prefixes(orig_xpath, leafref->prefixes);
 
 	if (remaped_xpath[0] == '/') // Absolute path
 		return remaped_xpath;
