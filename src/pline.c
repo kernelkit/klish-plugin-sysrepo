@@ -3,6 +3,8 @@
 
 #include <stdlib.h>
 #include <stdint.h>
+#include <inttypes.h>
+#include <ctype.h>
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
@@ -655,6 +657,136 @@ static bool_t pexpr_xpath_add_leaflist_key(pexpr_t *pexpr,
 }
 
 
+// Number kind of a type: 0 not a number, 1 integer, 2 decimal64
+static int number_kind(const struct lysc_type *type, const char *str)
+{
+	switch (type->basetype) {
+	case LY_TYPE_UINT8:
+	case LY_TYPE_UINT16:
+	case LY_TYPE_UINT32:
+	case LY_TYPE_UINT64:
+	case LY_TYPE_INT8:
+	case LY_TYPE_INT16:
+	case LY_TYPE_INT32:
+	case LY_TYPE_INT64:
+		return 1;
+	case LY_TYPE_DEC64:
+		return 2;
+	case LY_TYPE_LEAFREF:
+		return number_kind(((const struct lysc_type_leafref *)type)->realtype, str);
+	case LY_TYPE_UNION: {
+		const struct lysc_type_union *un = (const struct lysc_type_union *)type;
+		LYA_COUNT_T u = 0;
+		int kind = 0;
+
+		LYA_FOR(un->types, u) {
+			const struct lysc_type *t = un->types[u];
+			int k;
+
+			if (t->basetype == LY_TYPE_STRING || t->basetype == LY_TYPE_BINARY)
+				return 0;
+			if (t->basetype == LY_TYPE_ENUM) {
+				const struct lysc_type_enum *e = (const struct lysc_type_enum *)t;
+				LYA_COUNT_T v = 0;
+
+				LYA_FOR(e->enums, v) {
+					if (!strcmp(e->enums[v].name, str))
+						return 0;
+				}
+			}
+			k = number_kind(t, str);
+			if (k > kind)
+				kind = k;
+		}
+		return kind;
+	}
+	default:
+		return 0;
+	}
+}
+
+
+// Expand an SI (k, M, G, T, P, E) or IEC (Ki, Mi, ...) suffix, e.g. 1.5G
+static char *number_expand(const char *str, bool_t decimal)
+{
+	static const char units[] = "kMGTPE";
+	uint64_t num = 0, div = 1, mult = 1, base = 1000, q, r;
+	const char *p = str, *unit;
+	unsigned int digits = 0, frac = 0;
+	bool_t neg = BOOL_FALSE, dot = BOOL_FALSE;
+	char *res = NULL;
+	long i;
+
+	if (*p == '-') {
+		neg = BOOL_TRUE;
+		p++;
+	}
+	for (; isdigit((unsigned char)*p) || (*p == '.' && !dot); p++) {
+		if (*p == '.') {
+			dot = BOOL_TRUE;
+			continue;
+		}
+		if (__builtin_mul_overflow(num, 10, &num) ||
+		    __builtin_add_overflow(num, (uint64_t)(*p - '0'), &num))
+			return NULL;
+		if (dot) {
+			if (__builtin_mul_overflow(div, 10, &div))
+				return NULL;
+			frac++;
+		}
+		digits++;
+	}
+	if (!digits || !*p)
+		return NULL;
+
+	unit = strchr(units, *p == 'K' ? 'k' : *p);
+	if (!unit)
+		return NULL;
+	if (*++p == 'i') {
+		base = 1024;
+		p++;
+	}
+	if (*p)
+		return NULL;
+
+	for (i = 0; i <= unit - units; i++) {
+		if (__builtin_mul_overflow(mult, base, &mult))
+			return NULL;
+	}
+	if (__builtin_mul_overflow(num, mult, &num))
+		return NULL;
+
+	q = num / div;
+	r = num % div;
+	if (!r)
+		return faux_str_sprintf("%s%" PRIu64, neg ? "-" : "", q);
+	if (!decimal)
+		return NULL;
+
+	res = faux_str_sprintf("%s%" PRIu64 ".%0*" PRIu64, neg ? "-" : "", q, (int)frac, r);
+	for (i = strlen(res) - 1; res[i] == '0'; i--)
+		res[i] = 0;
+
+	return res;
+}
+
+
+// Numeric value with its SI or IEC suffix expanded, or NULL to use as is
+static char *number_value(const struct lysc_type *type, const char *str)
+{
+	int kind;
+
+	if (!type || !str)
+		return NULL;
+
+	kind = number_kind(type, str);
+	if (!kind)
+		return NULL;
+
+	return number_expand(str, kind == 2);
+}
+
+
 // Split an ADDR/LEN list key in place when the list has a prefix-length
 // leaf, e.g. ietf-ip addresses.  Returns a copy of LEN, or NULL.
 static char *cidr_split(const struct lysc_node *list, char *str,
@@ -867,8 +999,10 @@ static bool_t pline_parse_module(const struct lys_module *module, faux_argv_t *a
 						}
 
 						/* TODO: Is it required to add prefix on identyref here also? */
+						char *num = number_value(leaf->type, str);
 						pexpr_xpath_add_list_key(pexpr,
-									 leaf->name, str, NULL, BOOL_TRUE);
+									 leaf->name, num ? num : str, NULL, BOOL_TRUE);
+						faux_str_free(num);
 						faux_argv_each(&arg);
 						str = (const char *)faux_argv_current(arg);
 						pexpr->pat = PAT_LIST_KEY_INCOMPLETED;
@@ -969,8 +1103,10 @@ static bool_t pline_parse_module(const struct lys_module *module, faux_argv_t *a
 							}
 						}
 
+						char *num = number_value(leaf->type, str);
 						pexpr_xpath_add_list_key(pexpr,
-									 cur_key->node->name, str, prefix, BOOL_TRUE);
+									 cur_key->node->name, num ? num : str, prefix, BOOL_TRUE);
+						faux_str_free(num);
 						cur_key->value = str;
 						specified_keys_num++;
 						faux_argv_each(&arg);
@@ -1074,7 +1210,9 @@ static bool_t pline_parse_module(const struct lys_module *module, faux_argv_t *a
 						pexpr->value = faux_str_sprintf(
 							"%s:", prefix);
 				}
-				faux_str_cat(&pexpr->value, str);
+				char *num = number_value(leaf->type, str);
+				faux_str_cat(&pexpr->value, num ? num : str);
+				faux_str_free(num);
 			}
 			// Expression was completed
 			// So rollback (for oneliners)
@@ -1110,7 +1248,9 @@ static bool_t pline_parse_module(const struct lys_module *module, faux_argv_t *a
 					leaflist->type, str);
 			}
 
-			pexpr_xpath_add_leaflist_key(pexpr, prefix, str);
+			char *num = number_value(leaflist->type, str);
+			pexpr_xpath_add_leaflist_key(pexpr, prefix, num ? num : str);
+			faux_str_free(num);
 
 			// Expression was completed
 			// So rollback (for oneliners)
