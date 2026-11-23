@@ -384,33 +384,19 @@ static bool_t check_node_when(pline_t *pline, const struct lysc_node *node)
 		}
 	}
 
-	/* If node doesn't exist in data, we need to create a temp node for evaluation.
-	 * If we have a temp tree, attach to it. Otherwise create a standalone temp tree. */
+	/* If node doesn't exist in data, we need to create a temp node for evaluation. */
 	if (!temp_node) {
 		if (temp_tree_root) {
 			/* Attach opaque node to temp tree (safe, won't modify candidate data) */
 			lyd_new_opaq(current_data, NULL, node->name, NULL, NULL, node->module->name, &temp_node);
 		} else {
-			/* Context exists in candidate data but node doesn't - create standalone temp tree
-			 * just for evaluation to avoid modifying candidate data */
-			const struct ly_ctx *ctx = sr_session_acquire_context(pline->sess);
-			if (lyd_new_path(NULL, ctx, pexpr->xpath, NULL, 0, &temp_tree_root) == LY_SUCCESS) {
-				struct lyd_node *temp_parent = NULL;
-				if (lyd_find_path(temp_tree_root, pexpr->xpath, 0, &temp_parent) == LY_SUCCESS) {
-					/* Copy existing children from candidate to temp tree for accurate evaluation */
-					struct lyd_node *src_child;
-					LY_LIST_FOR(lyd_child(current_data), src_child) {
-						lyd_dup_single(src_child, temp_parent, LYD_DUP_WITH_FLAGS, NULL);
-					}
-					/* Add defaults for any missing children */
-					lyd_new_implicit_all(&temp_tree_root, ctx, LYD_IMPLICIT_NO_STATE, NULL);
-					/* Create opaque node for the node we're checking */
-					lyd_new_opaq(temp_parent, NULL, node->name, NULL, NULL, node->module->name, &temp_node);
-					/* Update current_data to point to temp tree so fallback works correctly */
-					current_data = temp_parent;
-				}
-			}
-			sr_session_release_context(pline->sess);
+			/* Context exists in candidate data but node doesn't.  Attach the
+			 * opaque node to our copy of the candidate data, so an expression
+			 * with an absolute path, to another subtree, finds its data.  It
+			 * is freed, and with that unlinked, as temp_tree_root. */
+			if (lyd_new_opaq(current_data, NULL, node->name, NULL, NULL,
+					 node->module->name, &temp_node) == LY_SUCCESS)
+				temp_tree_root = temp_node;
 		}
 	}
 
