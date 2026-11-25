@@ -1,4 +1,7 @@
+#define _GNU_SOURCE
 #include <errno.h>
+#include <signal.h>
+#include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -720,14 +723,39 @@ static void notify_on_delete(sr_session_ctx_t *sess, const char *xpath)
 	}
 }
 
+/* Run cmd with the user's own group, a set-group-ID klishd has that of sysrepo */
 static int run(const char *cmd)
 {
-	char command[strlen(cmd) +  32];
+	struct sigaction ign = { .sa_handler = SIG_IGN }, intr, quit;
+	gid_t rgid, egid, sgid;
+	pid_t pid;
 	int rc;
 
-	snprintf(command, sizeof(command), "env CLISH=yes /bin/sh -c '%s'", cmd);
-	rc = system(command);
-	if (rc == -1)
+	sigaction(SIGINT, &ign, &intr);
+	sigaction(SIGQUIT, &ign, &quit);
+
+	pid = fork();
+	if (!pid) {
+		sigaction(SIGINT, &intr, NULL);
+		sigaction(SIGQUIT, &quit, NULL);
+
+		if (getresgid(&rgid, &egid, &sgid) || setresgid(sgid, sgid, sgid))
+			_exit(127);
+
+		setenv("CLISH", "yes", 1);
+		execl("/bin/sh", "sh", "-c", cmd, NULL);
+		_exit(127);
+	}
+
+	while (pid > 0 && waitpid(pid, &rc, 0) < 0) {
+		if (errno != EINTR)
+			pid = -1;
+	}
+
+	sigaction(SIGINT, &intr, NULL);
+	sigaction(SIGQUIT, &quit, NULL);
+
+	if (pid < 0)
 		return -1;
 
 	if (WIFEXITED(rc))
